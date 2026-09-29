@@ -137,6 +137,7 @@ export default function MobileAppLayout({
             onSelectDetail={handleSelectDetail}
             onAvatarClick={() => setActiveTab("profile")}
             onRefreshUser={refreshUserProfile}
+            onSeeAll={() => setActiveTab("library")}
           />
         )}
         {activeTab === "library" && (

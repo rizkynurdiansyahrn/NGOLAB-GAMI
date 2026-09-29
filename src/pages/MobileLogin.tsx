@@ -104,15 +104,16 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
   const isLoginDisabled = !phone || !password;
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F3F4F8] font-sans items-center justify-center p-4 sm:p-6 lg:p-10">
+    <div className="flex min-h-screen w-full bg-[#F3F4F8] font-sans items-center justify-center p-3 sm:p-6 lg:p-10">
 
       {/* ─── Split Card Container ─── */}
-      <div className="w-full max-w-5xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row" style={{ minHeight: 640 }}>
+      <div className="w-full max-w-5xl bg-white rounded-2xl sm:rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row">
 
         {/* ══════════════════════════════════════════
             LEFT PANEL — dark poster / branding
+            Mobile: compact header strip (no scroll-heavy poster)
         ══════════════════════════════════════════ */}
-        <div className="relative w-full md:w-1/2 bg-slate-950 text-white flex flex-col justify-between overflow-hidden min-h-[320px] md:min-h-full">
+        <div className="relative w-full md:w-1/2 bg-slate-950 text-white flex flex-col justify-between overflow-hidden min-h-[160px] md:min-h-full">
           {/* Background & glow */}
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
           <img
@@ -122,22 +123,22 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
           />
           <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-[#FF5500]/25 blur-[120px] rounded-full pointer-events-none" />
 
-          {/* Content */}
-          <div className="relative z-10 flex flex-col flex-1 p-8 md:p-10 gap-8">
-            {/* Logo badge */}
-            <div className="inline-flex items-center gap-2.5 self-start bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
-              <div className="w-7 h-7 rounded-xl bg-[#FF5500] flex items-center justify-center">
-                <Gamepad2 className="w-4 h-4 text-white" />
+          {/* Mobile-compact: branding only on small screens */}
+          <div className="relative z-10 flex flex-col flex-1 p-5 md:p-10 gap-5 md:gap-8">
+            {/* Logo badge — always visible */}
+            <div className="inline-flex items-center gap-2.5 self-start bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+              <div className="w-6 h-6 rounded-lg bg-[#FF5500] flex items-center justify-center">
+                <Gamepad2 className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
                 <span className="text-xs font-black text-white tracking-wide block">NGOLAB-GAMI</span>
-                <span className="text-[9px] font-bold text-[#FF5500] tracking-widest uppercase block leading-none">
-                  LEVEL UP YOUR CAMPUS LIFE
+                <span className="text-[8px] font-bold text-[#FF5500] tracking-widest uppercase block leading-none md:hidden">
+                  LEVEL UP
                 </span>
               </div>
             </div>
 
-            {/* Dynamic poster content */}
+            {/* Full poster content — hidden on mobile, shown md+ */}
             <AnimatePresence mode="wait">
               {activeTab === "login" ? (
                 <motion.div
@@ -146,7 +147,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
                   transition={{ duration: 0.25 }}
-                  className="flex flex-col gap-5"
+                  className="hidden md:flex flex-col gap-5"
                 >
                   <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
                     Main. Menang. <br />
@@ -174,7 +175,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
                   transition={{ duration: 0.25 }}
-                  className="flex flex-col gap-5"
+                  className="hidden md:flex flex-col gap-5"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-[#FF5500]/20 border border-[#FF5500]/30 flex items-center justify-center text-[#FF5500]">
                     <Gamepad2 className="w-6 h-6" />
@@ -206,6 +207,19 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Mobile hero — compact tagline, hidden md+ */}
+            <div className="md:hidden mt-1">
+              {activeTab === "login" ? (
+                <h2 className="text-xl font-black text-white tracking-tight leading-tight">
+                  Main. Menang. <span className="text-[#FF5500]">Reward!</span>
+                </h2>
+              ) : (
+                <h2 className="text-xl font-black text-white tracking-tight leading-tight">
+                  Daftar & <span className="text-[#FF5500]">Mulai Main!</span>
+                </h2>
+              )}
+            </div>
           </div>
         </div>
 
@@ -213,7 +227,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
             RIGHT PANEL — white form area
         ══════════════════════════════════════════ */}
         <div className="w-full md:w-1/2 bg-white flex flex-col">
-          <div className="flex-1 flex flex-col justify-center p-8 md:p-10 overflow-y-auto">
+          <div className="flex-1 flex flex-col justify-center p-5 sm:p-8 md:p-10 overflow-y-auto">
             <AnimatePresence mode="wait">
 
               {/* ── LOGIN FORM ── */}
@@ -224,18 +238,18 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.22 }}
-                  className="flex flex-col gap-6"
+                  className="flex flex-col gap-5"
                 >
                   {/* Heading */}
                   <div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Masuk Akun</h2>
-                    <p className="text-sm text-slate-500 mt-1.5 font-medium leading-relaxed">
-                      Selamat datang kembali, Gamer! Siap mendaki leaderboard hari ini?
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Masuk Akun</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
+                      Selamat datang kembali, Gamer!
                     </p>
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                  <form onSubmit={handleLogin} className="flex flex-col gap-3.5">
                     {/* Email / Phone */}
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
@@ -249,7 +263,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                           placeholder="nama@kampus.ac.id"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3.5 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
                         />
                       </div>
                     </div>
@@ -272,7 +286,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-10 py-3.5 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-10 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
                         />
                         <button
                           type="button"
@@ -296,7 +310,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                       id="btn_masuk"
                       type="submit"
                       disabled={isLoginDisabled || isLoading}
-                      className="w-full bg-[#FF5500] hover:bg-[#e64d00] text-white font-extrabold text-sm uppercase tracking-wider py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#FF5500]/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-[#FF5500] hover:bg-[#e64d00] text-white font-extrabold text-sm uppercase tracking-wider py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#FF5500]/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? "Memproses..." : "MASUK SEKARANG"}
                       {!isLoading && <ArrowRight className="w-4 h-4" />}
@@ -354,7 +368,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.22 }}
-                  className="flex flex-col gap-5"
+                  className="flex flex-col gap-4"
                 >
                   {/* Back link */}
                   <button
@@ -367,14 +381,14 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
 
                   {/* Heading */}
                   <div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Daftar Akun Baru</h2>
-                    <p className="text-sm text-slate-500 mt-1 font-medium leading-relaxed">
-                      Lengkapi data dirimu untuk mulai berpetualang dan mengumpulkan poin di kampus.
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Daftar Akun Baru</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
+                      Lengkapi data untuk mulai berpetualang.
                     </p>
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleRegister} className="flex flex-col gap-3.5">
+                  <form onSubmit={handleRegister} className="flex flex-col gap-3">
                     {/* Nama */}
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
@@ -549,7 +563,7 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
           </div>
 
           {/* Footer */}
-          <div className="px-8 md:px-10 py-4 border-t border-slate-100 text-center space-y-0.5">
+          <div className="px-5 sm:px-8 md:px-10 py-3 border-t border-slate-100 text-center space-y-0.5">
             <div className="flex justify-center items-center gap-2 text-[10px] font-bold text-slate-400 tracking-wider">
               <span>SYARAT &amp; KETENTUAN</span>
               <span>•</span>

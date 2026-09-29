@@ -23,6 +23,7 @@ interface MobileDashboardProps {
   onSelectDetail?: (game: Game) => void;
   onAvatarClick?: () => void;
   onRefreshUser?: () => void;
+  onSeeAll?: () => void;
 }
 
 export default function MobileDashboard({
@@ -32,6 +33,7 @@ export default function MobileDashboard({
   onSelectDetail,
   onAvatarClick,
   onRefreshUser,
+  onSeeAll,
 }: MobileDashboardProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMysteryReward, setShowMysteryReward] = useState(false);
@@ -239,26 +241,22 @@ export default function MobileDashboard({
         </div>
       </div>
 
-      {/* Game Populer Section (Screenshot 3) */}
+      {/* Game Populer Section */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4 px-1">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
-              Game Populer
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Pilihan favorit pejuang skripsi minggu ini
-            </p>
-          </div>
+        <div className="flex justify-between items-center mb-3 px-0.5">
+          <h2 className="text-base font-black text-slate-900 tracking-tight">
+            Game Populer
+          </h2>
           <button
             type="button"
+            onClick={onSeeAll}
             className="text-xs font-black text-[#FF5500] hover:underline flex items-center gap-0.5"
           >
             Lihat Semua <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
           {popularGames.map((game) => (
             <div
               key={game.id}
@@ -266,31 +264,31 @@ export default function MobileDashboard({
                 if (onSelectDetail) onSelectDetail(game);
                 else onPlay(game.id);
               }}
-              className="group bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer"
+              className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer"
             >
-              <div className="h-44 w-full relative overflow-hidden bg-slate-100">
+              <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
                 <img
                   src={game.thumbnail}
                   alt={game.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute top-3 left-3 bg-[#FF5500] text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-md shadow-md">
+                <div className="absolute top-1.5 left-1.5 bg-[#FF5500] text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded shadow-md">
                   POPULER
                 </div>
               </div>
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-[#FF5500] transition-colors">
+              <div className="px-2 py-1.5 flex items-center justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-[10px] font-bold text-slate-900 truncate group-hover:text-[#FF5500] transition-colors">
                     {game.title}
                   </h3>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase">
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase truncate">
                     {game.category}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
-                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span className="text-xs font-bold text-slate-800">{game.rating}</span>
+                <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                  <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                  <span className="text-[9px] font-bold text-slate-600">{game.rating}</span>
                 </div>
               </div>
             </div>
