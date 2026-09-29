@@ -13,7 +13,18 @@ import { mockUser, AppUser } from './data/appData';
 type MobileAppState = 'login' | 'hub' | 'playing';
 
 export default function App() {
-  const [state, setState] = useState<MobileAppState>('login');
+  const getInitialState = (): MobileAppState => {
+    try {
+      if (typeof window !== 'undefined' && localStorage.getItem('ngolab_force_hub') === '1') {
+        return 'hub';
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'login';
+  };
+
+  const [state, setState] = useState<MobileAppState>(getInitialState());
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -32,7 +43,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-brand-black flex justify-center selection:bg-brand-orange/30 selection:text-white">
+    <div className="min-h-screen w-full bg-[#F3F4F8] flex justify-center selection:bg-[#FF5500]/30 selection:text-slate-900">
       <AnimatePresence mode="wait">
         {state === 'login' && (
           <motion.div 

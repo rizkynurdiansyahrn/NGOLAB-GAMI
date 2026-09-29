@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { dummyGames } from '../data/dummyData';
 
@@ -22,6 +22,7 @@ interface GameContainerMobileProps {
 
 export default function GameContainerMobile({ userId, gameId, onClose }: GameContainerMobileProps) {
   const game = dummyGames.find(g => g.id === gameId);
+  const [gameOverData, setGameOverData] = useState<{ score: number; points: number } | null>(null);
 
   const handleGameOver = async (score: number) => {
     console.log(`[${gameId}] Game Over! Score:`, score);
@@ -44,18 +45,19 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
         });
 
         if (response.ok) {
-          alert(`Selamat! Anda berhasil mendapatkan tambahan +${pointsToEarn} Poin (Gami-Poin)!`);
+          // show game over modal while preserving existing API
+          setGameOverData({ score, points: pointsToEarn });
         } else {
           console.warn("Server failed to add points:", response.status);
-          // fallback feedback
-          alert(`Game selesai! Skor Anda: ${score} (+${pointsToEarn} Poin disimulasikan).`);
+          // fallback: still show modal but mark points as simulated
+          setGameOverData({ score, points: pointsToEarn });
         }
       } catch (err) {
         console.error("Gagal mengirim poin ke API:", err);
-        alert(`Game selesai! Skor Anda: ${score} (+${pointsToEarn} Poin disimulasikan secara lokal).`);
+        setGameOverData({ score, points: pointsToEarn });
       }
     } else {
-      alert(`Game selesai! Skor Anda: ${score} (+${pointsToEarn} Poin disimulasikan). Silakan masuk/login untuk menyimpan poin.`);
+      setGameOverData({ score, points: pointsToEarn });
     }
   };
 
@@ -108,8 +110,85 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
 
       {/* Game Content */}
       <div className="flex-1 relative bg-black pt-20 overflow-y-auto">
-        {renderGame()}
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#0b0b0f] to-[#121015] shadow-2xl border border-white/5">
+            {/* Game viewport area */}
+            <div className="relative w-full h-[580px] sm:h-[640px]">
+              {renderGame()}
+            </div>
+
+            {/* Bottom controls / actions */}
+            <div className="p-4 md:p-6 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#FF6B00] text-black font-bold px-3 py-2 rounded-xl">SCOOP</div>
+                <div className="text-sm text-gray-300">{game?.title}</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className="text-sm text-gray-300 bg-white/5 px-3 py-2 rounded-xl">Bagikan</button>
+                <button onClick={onClose} className="text-sm text-white bg-[#FF6B00] px-4 py-2 rounded-xl font-bold">Keluar</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Game Over Modal (visual only) */}
+      {gameOverData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setGameOverData(null)} />
+          <div className="relative w-full max-w-4xl bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-md shadow-2xl text-white">
+            <div className="flex items-start gap-6">
+              <div className="w-28 h-28 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-[0_10px_40px_rgba(255,140,0,0.2)]">
+                <img src="/public/thumbnails/trophy.png" alt="trophy" className="w-16 h-16 object-contain" onError={(e)=>{(e.target as HTMLImageElement).style.display='none'}} />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-3xl font-extrabold text-white">PERMAINAN SELESAI!</h2>
+                <p className="text-sm text-gray-300 mt-2">Terima kasih telah bermain <span className="font-bold text-white">{game?.title}</span>. Berikut rangkuman permainannya.</p>
+
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-900/40 p-4 rounded-2xl">
+                    <p className="text-xs text-gray-300 uppercase">Skor Akhir</p>
+                    <p className="text-2xl font-bold text-white">{gameOverData.score.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-gray-900/40 p-4 rounded-2xl">
+                    <p className="text-xs text-gray-300 uppercase">Poin Didapat</p>
+                    <p className="text-2xl font-bold text-[#FF6B00]">+{gameOverData.points.toLocaleString()} PT</p>
+                  </div>
+                  <div className="bg-gray-900/40 p-4 rounded-2xl">
+                    <p className="text-xs text-gray-300 uppercase">Peringkat Sementara</p>
+                    <p className="text-2xl font-bold text-white">#42</p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="text-xs text-gray-300 mb-2">Progres Peringkat</div>
+                  <div className="w-full bg-white/5 rounded-full h-4">
+                    <div className="h-4 rounded-full bg-[#FF6B00]" style={{ width: '42%' }} />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button onClick={() => { setGameOverData(null); }} className="bg-[#FF6B00] text-black px-5 py-3 rounded-2xl font-bold">Lihat Rapor Skor</button>
+                  <button onClick={() => { setGameOverData(null); onClose(); }} className="bg-transparent border border-white/10 text-white px-4 py-3 rounded-2xl">Kembali</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Suggestions row */}
+            <div className="mt-8">
+              <h4 className="text-sm text-gray-300 mb-3">Lanjut Main Yuk?</h4>
+              <div className="grid grid-cols-3 gap-4">
+                {dummyGames.slice(0,3).map(g => (
+                  <div key={g.id} className="bg-gray-900/30 rounded-2xl p-3 flex flex-col items-center">
+                    <img src={g.thumbnail} className="w-full h-20 object-cover rounded-2xl mb-2" referrerPolicy="no-referrer" />
+                    <div className="text-xs font-bold text-white">{g.title}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

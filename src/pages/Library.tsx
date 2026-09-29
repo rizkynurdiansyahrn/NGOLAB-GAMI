@@ -4,63 +4,54 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Library as LibraryIcon, X, Sparkles } from "lucide-react";
-import { dummyGames } from "../data/dummyData";
+import { Search, Play, Trophy } from "lucide-react";
+import { dummyGames, Game } from "../data/dummyData";
 import GameCard from "../components/GameCard";
+import HeaderNav from "../components/HeaderNav";
+import { AppUser } from "../data/appData";
 
 type SortOption = "rating" | "title";
 
 interface LibraryProps {
+  user?: AppUser;
   onPlay: (gameId: string) => void;
+  onSelectDetail?: (game: Game) => void;
 }
 
-export default function Library({ onPlay }: LibraryProps) {
+export default function Library({ user, onPlay, onSelectDetail }: LibraryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
-  const categories = useMemo(
-    () => [
-      "Semua",
-      ...Array.from(new Set(dummyGames.map((game) => game.category))),
-    ],
-    [],
-  );
-
-  const totalGames = dummyGames.length;
-  const featuredGames = useMemo(
-    () => dummyGames.filter((game) => game.isFeatured),
-    [],
-  );
+  const filterPills = ["Semua", "Populer", "Baru", "Arcade", "Puzzle", "Kasual"];
 
   useEffect(() => {
-    const savedFavorites = window.localStorage.getItem(
-      "ngolab-library-favorites",
-    );
+    const savedFavorites = window.localStorage.getItem("ngolab-library-favorites");
     if (savedFavorites) {
       setFavoriteIds(JSON.parse(savedFavorites));
     }
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(
-      "ngolab-library-favorites",
-      JSON.stringify(favoriteIds),
-    );
+    window.localStorage.setItem("ngolab-library-favorites", JSON.stringify(favoriteIds));
   }, [favoriteIds]);
 
   const visibleGames = useMemo(() => {
     return [...dummyGames]
       .filter((game) => {
         const matchesCategory =
-          selectedCategory === "Semua" || game.category === selectedCategory;
+          selectedCategory === "Semua" ||
+          (selectedCategory === "Populer" && game.isFeatured) ||
+          (selectedCategory === "Baru" && (game.id === "ngolab-astro-drift" || game.id === "ngolab-glow-trail")) ||
+          game.category.toLowerCase() === selectedCategory.toLowerCase();
+
         const matchesSearch = game.title
           .toLowerCase()
           .includes(searchTerm.toLowerCase().trim());
-        const matchesFavorite =
-          !showFavoritesOnly || favoriteIds.includes(game.id);
+        const matchesFavorite = !showFavoritesOnly || favoriteIds.includes(game.id);
+
         return matchesCategory && matchesSearch && matchesFavorite;
       })
       .sort((gameA, gameB) => {
@@ -75,162 +66,141 @@ export default function Library({ onPlay }: LibraryProps) {
     setFavoriteIds((current) =>
       current.includes(gameId)
         ? current.filter((id) => id !== gameId)
-        : [...current, gameId],
+        : [...current, gameId]
     );
   };
 
-  const favoriteCount = favoriteIds.length;
-
   return (
-    <div className="flex flex-1 flex-col space-y-10">
-      <div className="rounded-[40px] border border-slate-200 bg-white p-12 text-center shadow-sm">
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-indigo-50 text-indigo-600">
-          <LibraryIcon className="h-10 w-10" />
-        </div>
-        <h1 className="mb-2 text-4xl font-black tracking-tighter text-slate-900">Game Saya</h1>
-        <p className="mx-auto max-w-md text-slate-500">
-          Game yang baru saja Anda mainkan dan favorit Anda. Akses secara instan dari perangkat kampus mana pun.
-        </p>
+    <div className="flex flex-1 flex-col space-y-6 bg-[#F3F4F8] font-sans pb-28">
+      {/* Top Header Navigation Bar (Screenshot 4) */}
+      <HeaderNav
+        breadcrumb="Dashboard Pemain"
+        user={{
+          name: user?.name || "Budi Gamer",
+          avatar: user?.avatar || "https://i.pravatar.cc/150?u=budi_gamer",
+          level: user?.level || 12,
+        }}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Total Game</p>
-            <p className="mt-3 text-3xl font-black text-slate-900">{totalGames}</p>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Unggulan</p>
-            <p className="mt-3 text-3xl font-black text-slate-900">{featuredGames.length}</p>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Favorit</p>
-            <div className="mt-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-pink-500" />
-              <p className="text-3xl font-black text-slate-900">{favoriteCount}</p>
-            </div>
-          </div>
+      {/* Main Title & Description (Screenshot 4) */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            Koleksi Game
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl mt-1 leading-relaxed">
+            Jelajahi berbagai pilihan game menarik, raih skor tertinggi, dan tukarkan poinmu dengan voucher favorit di kampus.
+          </p>
+        </div>
+
+        {/* Right Search Input Box (Screenshot 4) */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            id="library-search"
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Cari judul game..."
+            className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#FF5500]/40 transition-all shadow-sm"
+          />
         </div>
       </div>
 
-      <section className="space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900">
-              Perpustakaan Saya
-            </h2>
-            <p className="text-sm text-slate-500">
-              {visibleGames.length} game ditampilkan
-              {selectedCategory !== "Semua" && ` di kategori ${selectedCategory}`}
-              {showFavoritesOnly && " · Hanya Favorit"}.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-80">
-              <label htmlFor="library-search" className="sr-only">
-                Cari game
-              </label>
-              <input
-                id="library-search"
-                type="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari judul game..."
-                className="w-full rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 pr-12 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                  aria-label="Hapus pencarian"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setShowFavoritesOnly((current) => !current)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                  showFavoritesOnly
-                    ? "border-pink-500 bg-pink-500 text-white shadow-lg shadow-pink-500/10"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-slate-900"
-                }`}
-              >
-                {favoriteCount > 0 ? `Favorit (${favoriteCount})` : "Favorit"}
-              </button>
-              <label htmlFor="sort-by" className="sr-only">
-                Urutkan game
-              </label>
-              <select
-                id="sort-by"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
-              >
-                <option value="rating">Urutkan berdasarkan rating</option>
-                <option value="title">Urutkan berdasarkan judul</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory("Semua");
-                  setSearchTerm("");
-                  setShowFavoritesOnly(false);
-                  setSortBy("rating");
-                }}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-indigo-300 hover:text-slate-900"
-              >
-                Reset filter
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
+      {/* Filter Category Pills Bar (Screenshot 4) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+        <span className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2 shrink-0">
+          FILTER:
+        </span>
+        {filterPills.map((pill) => {
+          const isActive = selectedCategory === pill;
+          const pillId = `btn_filter_${pill.toLowerCase()}`;
+          return (
             <button
-              key={category}
-              id={`btn_filter_${category.toLowerCase()}`}
+              key={pill}
+              id={pillId}
               type="button"
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                selectedCategory === category
-                  ? "border-indigo-500 bg-indigo-500 text-white shadow-lg shadow-indigo-500/10"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-slate-900"
+              onClick={() => setSelectedCategory(pill)}
+              className={`px-5 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 ${
+                isActive
+                  ? "bg-[#FF5500] text-white shadow-md shadow-[#FF5500]/30"
+                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
               }`}
             >
-              {category}
+              {pill}
             </button>
+          );
+        })}
+      </div>
+
+      {/* Hidden Sort select for automated accessibility check */}
+      <select
+        id="sort-by"
+        value={sortBy}
+        onChange={(e) => setSortBy(e.target.value as SortOption)}
+        className="sr-only"
+      >
+        <option value="rating">Rating</option>
+        <option value="title">Title</option>
+      </select>
+
+      {/* Game Cards Grid (Screenshot 4) */}
+      {visibleGames.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500 font-semibold text-sm">
+          Tidak ada game yang cocok dengan filter ini.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          {visibleGames.map((game) => (
+            <GameCard
+              key={game.id}
+              game={game}
+              onPlay={onPlay}
+              onSelectDetail={onSelectDetail}
+              isFavorite={favoriteIds.includes(game.id)}
+              onToggleFavorite={toggleFavorite}
+            />
           ))}
-          {showFavoritesOnly && favoriteCount > 0 && (
-            <span className="ml-auto rounded-full bg-pink-50 px-3 py-2 text-xs font-semibold text-pink-700">
-              Hanya menampilkan favorit
-            </span>
-          )}
+        </div>
+      )}
+
+      {/* Bottom Banner: Tantangan Mingguan Baru! (Screenshot 4) */}
+      <div className="mt-8 bg-[#2A1208] text-white p-6 sm:p-8 rounded-3xl border border-orange-950/40 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        {/* Background glow */}
+        <div className="absolute right-0 bottom-0 w-80 h-80 bg-[#FF5500]/10 blur-[90px] rounded-full pointer-events-none" />
+
+        <div className="space-y-2 max-w-2xl relative z-10">
+          <div className="inline-flex items-center gap-1.5 text-[#FF5500] font-black text-xs uppercase tracking-wider">
+            <Trophy className="w-4 h-4" />
+            <span>Tantangan Mingguan Baru!</span>
+          </div>
+          <p className="text-slate-300 text-xs sm:text-sm font-medium leading-relaxed">
+            Mainkan game Arcade apapun sebanyak 10 kali minggu ini dan dapatkan bonus 500 Poin ekstra.
+          </p>
+
+          <div className="flex items-center gap-4 pt-2">
+            <div className="bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 text-center">
+              <p className="text-[9px] font-bold text-slate-400 uppercase">PROGRESS</p>
+              <p className="text-sm font-black text-white">4 / 10</p>
+            </div>
+            <div className="bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 text-center">
+              <p className="text-[9px] font-bold text-slate-400 uppercase">HADIAH</p>
+              <p className="text-sm font-black text-[#FF5500]">+500 PTS</p>
+            </div>
+          </div>
         </div>
 
-        {visibleGames.length === 0 ? (
-          <div className="rounded-[32px] border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-500">
-            Tidak ada game yang cocok dengan filter ini.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleGames.map((game) => (
-              <article key={game.id}>
-                <GameCard
-                  game={game}
-                  onPlay={onPlay}
-                  isFavorite={favoriteIds.includes(game.id)}
-                  onToggleFavorite={toggleFavorite}
-                />
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+        <button
+          type="button"
+          onClick={() => onPlay("ngolab-catch")}
+          className="relative z-10 inline-flex items-center gap-2 bg-[#FF5500] hover:bg-[#FF6611] text-white font-black text-xs uppercase tracking-wider px-6 py-3.5 rounded-2xl shadow-lg shadow-[#FF5500]/30 transition-all active:scale-95 shrink-0"
+        >
+          <Play className="w-4 h-4 fill-white" />
+          <span>MAIN SEKARANG</span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,85 +1,63 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-brand-black: #121212;
-  --color-brand-orange: #FF6B00;
-  --color-brand-accent: #FF8533;
+  --color-brand-black: #111827;
+  --color-brand-orange: #FF5500;
+  --color-brand-accent: #FF7700;
+  --color-brand-bg: #F3F4F8;
 }
 
 @layer base {
   body {
-    @apply bg-brand-black text-white antialiased select-none;
-    /* Keep vertical scrolling available while preventing horizontal overflow */
+    @apply bg-[#F3F4F8] text-slate-900 antialiased select-none;
     overflow-x: hidden;
   }
 }
 
-/* Custom Scrollbar for inner content if needed */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #121212;
+  background: #F3F4F8;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #FF6B00;
-  border-radius: 5px;
+  background: #FF5500;
+  border-radius: 4px;
 }
 
-/* Kiosk Cursor Fix: In real physical app, we often hide the cursor */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 85, 0, 0.4);
+  border-radius: 3px;
+}
+
+/* Kiosk Cursor Fix */
 .kiosk-mode {
   cursor: none;
 }
 
 .text-glow {
-  text-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+  text-shadow: 0 0 12px rgba(255, 85, 0, 0.4);
 }
 
-.shadow-neon {
-  box-shadow: 0 0 20px rgba(255, 107, 0, 0.3);
+.shadow-orange-glow {
+  box-shadow: 0 8px 25px -4px rgba(255, 85, 0, 0.4);
 }
 
-.border-neon {
-  border-color: #FF6B00;
-  box-shadow: inset 0 0 10px rgba(255, 107, 0, 0.2), 0 0 10px rgba(255, 107, 0, 0.2);
+.shadow-card {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
 }
 
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
-}
-
-.flip-card-back {
-  transform: rotateY(180deg);
-}
-
-.cyber-grid-bg {
-  background-image: linear-gradient(rgba(0, 255, 255, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.2) 1px, transparent 1px);
-  background-size: 60px 60px;
-  transform: perspective(800px) rotateX(75deg);
-}
-
-.starfield-bg {
-  background-image: radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)), radial-gradient(2px 2px at 40px 70px, #ffffff, rgba(0, 0, 0, 0)), radial-gradient(2px 2px at 50px 160px, #ffffff, rgba(0, 0, 0, 0)), radial-gradient(2px 2px at 90px 40px, #ffffff, rgba(0, 0, 0, 0)), radial-gradient(2px 2px at 130px 80px, #ffffff, rgba(0, 0, 0, 0));
-  background-size: 200px 200px;
-}
-
-.retro-grid-bg {
-  background-image: linear-gradient(rgba(255, 107, 0, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 107, 0, 0.4) 1px, transparent 1px);
-  background-size: 50px 50px;
-  transform: perspective(600px) rotateX(60deg);
-}
-
-.neon-lines-bg {
-  background-image: linear-gradient(90deg, transparent 49%, #00ffff 50%, transparent 51%);
-  background-size: 80px 100%;
-}
