@@ -4,11 +4,8 @@ import {
   Trophy,
   Gift,
   User,
-  LogOut,
-  ChevronRight,
-  Users,
-  BookOpen,
   Gamepad2,
+  BookOpen,
 } from "lucide-react";
 import MobileDashboard from "./MobileDashboard";
 import Library from "./Library";
@@ -24,7 +21,7 @@ import SettingsPage from "./Settings";
 import { AppUser, mockUser } from "../data/appData";
 import { Game } from "../data/dummyData";
 import EditProfileModal from "../components/EditProfileModal";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 
 type Tab =
   | "home"
@@ -156,78 +153,24 @@ export default function MobileAppLayout({
           />
         )}
         {activeTab === "leaderboard" && <MobileLeaderboard user={user} />}
-        {activeTab === "profile" && <Profile />}
+        {activeTab === "profile" && (
+          <Profile
+            user={user}
+            onEdit={() => setIsEditProfileOpen(true)}
+            onLogout={onLogout}
+          />
+        )}
         {activeTab === "achievement" && <Achievement />}
         {activeTab === "notifications" && <Notifications />}
         {activeTab === "settings" && <SettingsPage />}
         {activeTab === "patungan" && <MobilePatungan userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
         {activeTab === "study" && <MobileStudyTracker userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
         {activeTab === "rewards" && <MobileRewards userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
-        
-        {activeTab === "profile" && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex-1 w-full max-w-2xl mx-auto flex flex-col p-6 pt-12"
-          >
-            <div className="flex flex-col items-center justify-center mb-8">
-              <div className="relative mb-4">
-                <img
-                  src={user.avatar}
-                  alt="Avatar"
-                  className="w-28 h-28 rounded-full border-4 border-white object-cover shadow-xl"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-[#FF5500] rounded-full flex items-center justify-center border-2 border-white font-bold text-white text-xs shadow-md">
-                  {user.level}
-                </div>
-              </div>
-              <h2 id="txt_sidebar_nama" className="text-2xl font-bold text-slate-900 tracking-tight">
-                {user.name}
-              </h2>
-              <p className="text-[#FF5500] text-xs font-extrabold uppercase tracking-wider mt-0.5">
-                Campus Pro Gamer
-              </p>
-            </div>
-
-            <div className="w-full space-y-4">
-              <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                <button
-                  id="btn_edit_profile"
-                  onClick={() => setIsEditProfileOpen(true)}
-                  className="w-full flex items-center justify-between py-2.5 group text-slate-700 hover:text-slate-900"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-[#FF5500]">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <span className="font-bold text-base">Edit Profil</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
-                </button>
-                
-                <div className="h-px w-full bg-slate-100 my-2" />
-                
-                <button
-                  onClick={onLogout}
-                  className="w-full flex items-center justify-between py-2.5 group text-red-600 hover:text-red-700"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
-                      <LogOut className="w-5 h-5" />
-                    </div>
-                    <span className="font-bold text-base">Keluar Akun</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Bottom Floating Navigation Bar (Screenshots 3, 4, 5) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl py-2 px-4">
-        <div className="max-w-md mx-auto flex items-center justify-around">
+        <div className="mx-auto flex w-full max-w-md items-center justify-around">
           <NavButton
             id="tab_home"
             active={activeTab === "home"}
@@ -248,6 +191,13 @@ export default function MobileAppLayout({
             onClick={() => setActiveTab("rewards")}
             icon={<Gift className="w-5 h-5" />}
             label="Hadiah"
+          />
+          <NavButton
+            id="tab_study"
+            active={activeTab === "study"}
+            onClick={() => setActiveTab("study")}
+            icon={<BookOpen className="w-5 h-5" />}
+            label="Study Track"
           />
           <NavButton
             active={activeTab === "profile"}
@@ -317,7 +267,7 @@ function NavButton({
     <button
       id={id}
       onClick={onClick}
-      className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+      className={`flex flex-1 flex-col items-center justify-center py-1 px-1 sm:px-3 rounded-2xl transition-all ${
         active ? "text-[#FF5500] font-extrabold" : "text-slate-400 hover:text-slate-600 font-semibold"
       }`}
     >

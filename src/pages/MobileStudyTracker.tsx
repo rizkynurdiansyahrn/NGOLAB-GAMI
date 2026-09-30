@@ -10,6 +10,8 @@ import {
   Clock,
   RefreshCw,
   BookOpen,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { AppUser } from "../data/appData";
 
@@ -24,6 +26,12 @@ type PetState = "idle" | "studying" | "anxious" | "sleeping" | "happy";
 
 const POMODORO_TIME = 25 * 60; // 25 minutes in seconds
 const CHECK_TIME_LIMIT = 5; // 5 seconds to respond
+const MAX_MATERIAL_SIZE = 20 * 1024 * 1024;
+
+interface StudyMaterial {
+  file: File;
+  url: string;
+}
 
 const petStateTranslation: Record<PetState, string> = {
   idle: "Santai",
@@ -39,6 +47,14 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
   const [isActive, setIsActive] = useState(false);
   const [petState, setPetState] = useState<PetState>("idle");
   const [history, setHistory] = useState<any[]>([]);
+  const [material, setMaterial] = useState<StudyMaterial | null>(null);
+  const [materialError, setMaterialError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (material?.url) URL.revokeObjectURL(material.url);
+    };
+  }, [material]);
 
   const fetchStudySessions = async () => {
     if (!userId) return;
@@ -101,7 +117,28 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleMaterialSelect = (file?: File) => {
+    setMaterialError("");
+    if (!file) return;
+
+    const allowedExtensions = /\.(pdf|doc|docx|ppt|pptx|jpg|jpeg|png)$/i;
+    if (!allowedExtensions.test(file.name)) {
+      setMaterialError("Format belum didukung. Pilih PDF, Word, PowerPoint, atau gambar.");
+      return;
+    }
+    if (file.size > MAX_MATERIAL_SIZE) {
+      setMaterialError("Ukuran berkas maksimal 20 MB.");
+      return;
+    }
+
+    setMaterial({ file, url: URL.createObjectURL(file) });
+  };
+
   const startSession = () => {
+    if (!material) {
+      setMaterialError("Unggah materi belajar terlebih dahulu untuk memulai sesi.");
+      return;
+    }
     setSessionState("studying");
     setTimeLeft(POMODORO_TIME);
     setIsActive(true);
@@ -138,6 +175,7 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
     setTimeLeft(POMODORO_TIME);
     setSummaryNotes("");
     setEarnedPoints(0);
+    setMaterial(null);
   };
 
   const finishSession = async () => {
@@ -165,7 +203,8 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            notes: summaryNotes || "Fokus Belajar Pomodoro",
+            notes: [summaryNotes || "Fokus Belajar Pomodoro", `Materi: ${material?.file.name ?? "Tidak dilampirkan"}`].join("\n"),
+            material_name: material?.file.name,
             duration: 25,
             points: calculatedPoints,
             coins: calculatedPoints
@@ -193,6 +232,7 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
           created_at: new Date().toISOString(),
           duration: 25,
           notes: summaryNotes || "Fokus Belajar Pomodoro",
+          material_name: material?.file.name,
           points: calculatedPoints
         };
         const updatedHistory = [newSession, ...history];
@@ -350,15 +390,43 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
                 Sesi Fokus 25 Menit
               </h3>
               <p className="text-[#1A1A1A]/70 text-sm font-medium mb-8 leading-relaxed max-w-xs">
-                Mulai belajar, coding, atau membaca tugasmu. Kamu bebas membuka
-                aplikasi apapun, tetapi pastikan merespons Random Focus Check!
+                Unggah materi yang akan dipelajari, lalu mulai sesi fokus 25 menit.
+                Pastikan merespons Random Focus Check!
               </p>
+
+              <label htmlFor="study-material" className="mb-3 flex w-full cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/60 px-4 py-5 transition hover:border-[#FF6B00] hover:bg-orange-50">
+                <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#FF6B00] shadow-sm"><Upload className="h-5 w-5" /></span>
+                <span className="text-sm font-extrabold text-slate-800">{material ? "Ganti materi belajar" : "Pilih file materi"}</span>
+                <span className="mt-1 text-[11px] text-slate-500">PDF, Word, PowerPoint, atau gambar · Maks. 20 MB</span>
+                <input
+                  id="study-material"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  className="sr-only"
+                  onChange={(event) => {
+                    handleMaterialSelect(event.target.files?.[0]);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              {material && (
+                <div className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#FF6B00]"><FileText className="h-5 w-5" /></span>
+                  <a href={material.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700 hover:text-[#FF6B00]" title={material.file.name}>{material.file.name}</a>
+                  <button type="button" onClick={() => setMaterial(null)} aria-label="Hapus materi" className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-red-500"><X className="h-4 w-4" /></button>
+                </div>
+              )}
+              {material?.file.name.toLowerCase().endsWith(".pdf") && (
+                <PdfReader material={material} />
+              )}
+              {materialError && <p role="alert" className="mb-4 w-full text-left text-xs font-semibold text-red-600">{materialError}</p>}
 
               {renderPet()}
 
               <button
                 onClick={startSession}
-                className="w-full h-16 rounded-2xl bg-[#FF6B00] text-black font-extrabold text-lg uppercase tracking-wider shadow-[0_4px_20px_rgba(255,107,0,0.4)] hover:shadow-[0_4px_30px_rgba(255,107,0,0.6)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2"
+                disabled={!material}
+                className="w-full h-16 rounded-2xl bg-[#FF6B00] text-black font-extrabold text-lg uppercase tracking-wider shadow-[0_4px_20px_rgba(255,107,0,0.4)] hover:shadow-[0_4px_30px_rgba(255,107,0,0.6)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
               >
                 <Play className="w-6 h-6 fill-current" /> Mulai Belajar!
               </button>
@@ -413,6 +481,17 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
                 <div className="bg-red-50 text-red-600 rounded-xl p-4 mb-6 text-sm font-bold flex items-center justify-center gap-2">
                   <X className="w-5 h-5" /> Gagal. Jangan Lupa Kembali!
                 </div>
+              )}
+
+              {material && (
+                <a href={material.url} target="_blank" rel="noreferrer" className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 text-left hover:border-orange-200">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#FF6B00]"><FileText className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Materi sesi ini</span><span className="block truncate text-xs font-bold text-slate-700">{material.file.name}</span></span>
+                  <span className="text-[10px] font-bold text-[#FF6B00]">Buka</span>
+                </a>
+              )}
+              {material?.file.name.toLowerCase().endsWith(".pdf") && (
+                <PdfReader material={material} />
               )}
 
               {(sessionState === "studying" || sessionState === "finished") && (
@@ -480,6 +559,7 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
                       setTimeLeft(POMODORO_TIME);
                       setSummaryNotes("");
                       setEarnedPoints(0);
+                      setMaterial(null);
                     }}
                     className="flex-1 bg-[#1A1A1A] text-white h-14 rounded-2xl font-bold uppercase tracking-widest hover:bg-gray-800 transition shadow-[0_10px_20px_rgba(0,0,0,0.1)] flex items-center justify-center gap-2"
                   >
@@ -538,6 +618,12 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
                   {h.notes && (
                     <p className="text-xs text-gray-500 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
                       {h.notes}
+                    </p>
+                  )}
+                  {h.material_name && (
+                    <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <FileText className="h-4 w-4 shrink-0 text-[#FF6B00]" />
+                      <span className="truncate">Materi: {h.material_name}</span>
                     </p>
                   )}
                 </motion.div>
@@ -654,5 +740,25 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser }: Mobi
         }
       `}</style>
     </div>
+  );
+}
+
+function PdfReader({ material }: { material: StudyMaterial }) {
+  return (
+    <section className="mb-5 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <FileText className="h-4 w-4 shrink-0 text-[#FF6B00]" />
+          <h4 className="truncate text-xs font-extrabold text-slate-700">Membaca materi PDF</h4>
+        </div>
+        <a href={material.url} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] font-bold text-[#FF6B00] hover:underline">Buka penuh</a>
+      </div>
+      <iframe
+        src={`${material.url}#toolbar=1&navpanes=0&view=FitH`}
+        title={`Pembaca PDF: ${material.file.name}`}
+        className="h-[55vh] min-h-[320px] w-full bg-white sm:h-[600px]"
+      />
+      <p className="px-4 py-2 text-[10px] text-slate-500">Gunakan kontrol pembaca untuk menggulir dan memperbesar halaman.</p>
+    </section>
   );
 }
