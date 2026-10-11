@@ -1,5 +1,5 @@
-import React from "react";
-import { Search, Bell, ChevronRight } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Search, Bell, ChevronRight, Settings, LogOut } from "lucide-react";
 import { DEFAULT_AVATAR } from "../lib/userProfile";
 
 interface HeaderNavProps {
@@ -11,7 +11,10 @@ interface HeaderNavProps {
   };
   onSearchChange?: (term: string) => void;
   searchValue?: string;
-  onAvatarClick?: () => void;
+  /** Membuka halaman profil dari menu pengguna. */
+  onOpenProfile?: () => void;
+  /** Keluar dari akun, dipanggil dari menu pengguna. */
+  onLogout?: () => void;
 }
 
 export default function HeaderNav({
@@ -19,8 +22,43 @@ export default function HeaderNav({
   user,
   onSearchChange,
   searchValue = "",
-  onAvatarClick,
+  onOpenProfile,
+  onLogout,
 }: HeaderNavProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Tutup menu saat pengguna mengklik di luar atau menekan Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        event.target instanceof Node &&
+        !menuRef.current.contains(event.target)
+      )
+        setMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const openProfile = () => {
+    setMenuOpen(false);
+    onOpenProfile?.();
+  };
+
+  const handleLogout = () => {
+    setMenuOpen(false);
+    onLogout?.();
+  };
   return (
     <header className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-2 mb-6 border-b border-gray-200/60">
       {/* Left Breadcrumb */}
@@ -53,28 +91,58 @@ export default function HeaderNav({
           <Bell className="w-4 h-4" />
         </button>
 
-        {/* User Profile Chip */}
-        <button
-          type="button"
-          aria-label="Buka profil pengguna"
-          onClick={onAvatarClick}
-          className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm rounded-full py-1 px-3 cursor-pointer transition-all shrink-0 text-left"
-        >
-          <div className="text-right hidden xs:block">
-            <p className="text-xs font-bold text-slate-900 leading-tight">
-              {user?.name || "Pengguna Ngolab-Gami"}
-            </p>
-            <p className="text-[10px] text-slate-400 font-medium leading-none">
-              Level {user?.level ?? 1}
-            </p>
-          </div>
-          <img
-            src={user?.avatar || DEFAULT_AVATAR}
-            alt="User Avatar"
-            className="w-7 h-7 rounded-full object-cover border border-slate-300"
-            referrerPolicy="no-referrer"
-          />
-        </button>
+        {/* User Profile Chip + Menu */}
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            aria-label="Menu pengguna"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="flex items-center gap-2 hover:bg-slate-200/60 rounded-full py-1 px-3 cursor-pointer transition-all shrink-0 text-left"
+          >
+            <div className="text-right hidden xs:block">
+              <p className="text-xs font-bold text-slate-900 leading-tight">
+                {user?.name || "Pengguna Ngolab-Gami"}
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium leading-none">
+                Level {user?.level ?? 1}
+              </p>
+            </div>
+            <img
+              src={user?.avatar || DEFAULT_AVATAR}
+              alt="User Avatar"
+              className="w-7 h-7 rounded-full object-cover border border-slate-300"
+              referrerPolicy="no-referrer"
+            />
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-xl"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openProfile}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Settings className="h-4 w-4 text-slate-400" />
+                Pengaturan
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" />
+                Keluar
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

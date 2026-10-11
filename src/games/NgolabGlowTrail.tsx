@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, Eye, MousePointer2, RotateCcw, Sparkles, Target, Tr
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type NodeData = { id: number; x: number; y: number; label: string };
@@ -16,7 +17,7 @@ const nodePositions = [
   { x: 18, y: 82 }, { x: 50, y: 88 }, { x: 82, y: 82 },
 ];
 
-export default function NgolabGlowTrail({ onGameOver, onExit }: GameProps) {
+export default function NgolabGlowTrail({ onGameOver, onExit, onScoreChange }: GameProps) {
   const gameOverReportedRef = useRef(false);
   const [gameState, setGameState] = useState<'START' | 'SHOW' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
@@ -84,7 +85,11 @@ export default function NgolabGlowTrail({ onGameOver, onExit }: GameProps) {
     if (expected?.id === id) {
       const nextProgress = progress + 1;
       setProgress(nextProgress);
-      setScore((previous) => previous + 10);
+      setScore((previous) => {
+        const next = previous + 10;
+        onScoreChange?.(next);
+        return next;
+      });
       if (nextProgress === targetOrder.length) {
         setMessage('Sempurna! Seluruh jalur berhasil diingat.');
         setEndReason('WIN');
@@ -96,7 +101,11 @@ export default function NgolabGlowTrail({ onGameOver, onExit }: GameProps) {
     }
 
     const nextTime = Math.max(0, timeLeft - 4);
-    setScore((previous) => Math.max(0, previous - 5));
+    setScore((previous) => {
+      const next = Math.max(0, previous - 5);
+      onScoreChange?.(next);
+      return next;
+    });
     setTimeLeft(nextTime);
     if (nextTime === 0) {
       setMessage('Waktu habis karena salah memilih titik.');

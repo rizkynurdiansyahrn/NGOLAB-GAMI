@@ -5,11 +5,12 @@ import { ArrowRight, Clock3, Gamepad2, Headphones, Keyboard, Music2, Sparkles, T
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type Note = { id: string; lane: number; y: number; active: boolean };
 
-export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
+export default function NgolabBeatBounce({ onGameOver, onExit, onScoreChange }: GameProps) {
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(40);
@@ -145,6 +146,7 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
         state.score += baseScore;
         state.combo += 1;
         setScore(state.score);
+        onScoreChange?.(state.score);
         setCombo(state.combo);
 
         const splashText = distance < 4 ? 'PERFECT' : distance < 9 ? 'AWESOME' : 'GOOD';

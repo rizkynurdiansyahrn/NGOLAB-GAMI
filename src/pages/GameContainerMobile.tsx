@@ -1,6 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, Trophy, X } from 'lucide-react';
 import { dummyGames } from '../data/dummyData';
+
+import { createGameSessionId, earnPoints } from '../lib/pointlab';
+import {
+  capMessage,
+  decideAward,
+  gamePointsBudgetKey,
+  parseBudget,
+  recordAward,
+  todayKey,
+} from '../lib/gamePointsBudget';
+import type { CapReason, GamePointsBudget } from '../lib/gamePointsBudget';
+import { POINTS_PER_GAME_TARGET, getGameTarget, isTargetReached } from '../lib/gameTargets';
+
+function readBudgetFromStorage(userId: string | null): GamePointsBudget {
+  try {
+    const raw = localStorage.getItem(gamePointsBudgetKey(userId));
+    return parseBudget(raw ? JSON.parse(raw) : null, todayKey());
+  } catch {
+    return parseBudget(null, todayKey());
+  }
+}
+
+function writeBudgetToStorage(userId: string | null, budget: GamePointsBudget): void {
+  try {
+    localStorage.setItem(gamePointsBudgetKey(userId), JSON.stringify(budget));
+  } catch {
+    // Mode privat: kuota hari ini tidak bertahan, game tetap bisa dimainkan.
+  }
+}
 
 import NgolabBurger from '../games/NgolabBurger';
 import NgolabCatch from '../games/NgolabCatch';
@@ -17,64 +46,105 @@ import NgolabNeonSlither from '../games/NgolabNeonSlither';
 interface GameContainerMobileProps {
   userId: string | null;
   gameId: string;
+  memberId?: string | null;
+  accessToken?: string | null;
+  onPointsEarned?: (points: number) => void;
   onClose: () => void;
 }
 
-export default function GameContainerMobile({ userId, gameId, onClose }: GameContainerMobileProps) {
+export default function GameContainerMobile({ userId, gameId, memberId, accessToken, onPointsEarned, onClose }: GameContainerMobileProps) {
   const game = dummyGames.find(g => g.id === gameId);
-  const [gameOverData, setGameOverData] = useState<{ score: number; points: number } | null>(null);
+  const target = getGameTarget(gameId);
+  const [gameOverData, setGameOverData] = useState<{ score: number; points: number; sync: 'pending' | 'synced' | 'failed' | 'capped' | 'target'; capReason: CapReason | null;
+    targetReached: boolean } | null>(null);
 
-  const handleGameOver = async (score: number) => {
-    console.log(`[${gameId}] Game Over! Score:`, score);
-    
-    // API #2: Tambah Poin (Setelah Main Game)
-    const pointsToEarn = Math.max(10, Math.floor(score / 10));
-    const description = `Bermain game ${game?.title || gameId}`;
+  const latestScoreRef = useRef(0);
 
-    if (userId) {
-      try {
-        const response = await fetch(`https://geasture.kolab.top/api/users/${userId}/earn-coins`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: pointsToEarn,
-            description: description,
-          }),
-        });
+  const handleScoreChange = (score: number) => {
+    latestScoreRef.current = score;
+  };
 
-        if (response.ok) {
-          // show game over modal while preserving existing API
-          setGameOverData({ score, points: pointsToEarn });
-        } else {
-          console.warn("Server failed to add points:", response.status);
-          // fallback: still show modal but mark points as simulated
-          setGameOverData({ score, points: pointsToEarn });
-        }
-      } catch (err) {
-        console.error("Gagal mengirim poin ke API:", err);
-        setGameOverData({ score, points: pointsToEarn });
-      }
-    } else {
-      setGameOverData({ score, points: pointsToEarn });
+  // Sesi dinilai dari skor akhir (game over alami ATAU pemain close/keluar):
+  // target game tercapai -> layak 10 poin (selama kuota harian tersisa),
+  // target belum tercapai -> 0 poin.
+  const finishSession = async (score: number) => {
+    console.log(`[${gameId}] Sesi berakhir. Skor akhir:`, score);
+
+    const targetReached = isTargetReached(score, gameId);
+    if (!targetReached) {
+      setGameOverData({ score, points: 0, sync: 'target', capReason: null, targetReached });
+      return;
     }
+
+    // Batas poin harian (sisi aplikasi): maksimal 10 poin per game per hari,
+    // maksimal 50 poin total per hari. Game TETAP bisa dimainkan tanpa poin
+    // setelah limit tercapai.
+    const description = `Menyelesaikan target ${game?.title || gameId} (${target.targetLabel})`;
+    const budget = readBudgetFromStorage(userId);
+    const decision = decideAward(budget, gameId, POINTS_PER_GAME_TARGET);
+
+    if (decision.points <= 0) {
+      setGameOverData({ score, points: 0, sync: 'capped', capReason: decision.reason, targetReached });
+      return;
+    }
+
+    if (!memberId || !accessToken) {
+      setGameOverData({ score, points: decision.points, sync: 'failed', capReason: null, targetReached });
+      return;
+    }
+
+    // API resmi Loyalty Points (PointLab): POST /api/members/{id}/loyalty/points/earn
+    const sessionId = createGameSessionId(gameId, new Date());
+    setGameOverData({ score, points: decision.points, sync: 'pending', capReason: null, targetReached });
+    try {
+      const result = await earnPoints(memberId, accessToken, {
+        points: decision.points,
+        source: 'GAMIFICATION',
+        referenceType: 'GAME_SESSION',
+        referenceId: sessionId,
+        description,
+        idempotencyKey: sessionId,
+      });
+      // Kuota hanya dicatat setelah server mengonfirmasi, supaya kegagalan
+      // jaringan tidak membakar kuota pengguna.
+      writeBudgetToStorage(userId, recordAward(budget, gameId, decision.points));
+      if (typeof result?.currentPoints === 'number') onPointsEarned?.(result.currentPoints);
+      setGameOverData((prev) => (prev ? { ...prev, sync: 'synced' } : prev));
+    } catch (err) {
+      console.warn("Gagal mengirim poin ke layanan loyalty:", err);
+      setGameOverData((prev) => (prev ? { ...prev, sync: 'failed' } : prev));
+    }
+  };
+
+  const handleGameOver = (score: number) => {
+    void finishSession(score);
+  };
+
+  // Pemain menekan close/keluar dari dalam game: sesi dinilai dari skor terkini,
+  // ringkasan tetap ditampilkan (poin diberikan kalau target sudah tercapai).
+  const handleExit = () => {
+    void finishSession(latestScoreRef.current);
+  };
+
+  // Tombol kembali/close di header container: sama seperti keluar dari dalam game.
+  const handleCloseRequest = () => {
+    void finishSession(latestScoreRef.current);
   };
 
   const renderGame = () => {
     switch (gameId) {
-      case 'ngolab-burger': return <NgolabBurger onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-catch': return <NgolabCatch onGameOver={handleGameOver} onExit={onClose} />;
+      case 'ngolab-burger': return <NgolabBurger onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-catch': return <NgolabCatch onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
       case 'ngolab-doodle-road':
-      case 'ngolab-traffic-escape': return <NgolabTrafficEscape onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-fitness-quiz': return <NgolabFitnessQuiz onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-memory': return <NgolabMemory onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-astro-drift': return <NgolabAstroDrift onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-beat-bounce': return <NgolabBeatBounce onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-neon-merge': return <NgolabNeonMerge onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-glow-trail': return <NgolabGlowTrail onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-sky-swipe': return <NgolabSkySwipe onGameOver={handleGameOver} onExit={onClose} />;
-      case 'ngolab-neon-slither': return <NgolabNeonSlither onGameOver={handleGameOver} onExit={onClose} />;
+      case 'ngolab-traffic-escape': return <NgolabTrafficEscape onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-fitness-quiz': return <NgolabFitnessQuiz onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-memory': return <NgolabMemory onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-astro-drift': return <NgolabAstroDrift onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-beat-bounce': return <NgolabBeatBounce onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-neon-merge': return <NgolabNeonMerge onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-glow-trail': return <NgolabGlowTrail onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-sky-swipe': return <NgolabSkySwipe onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
+      case 'ngolab-neon-slither': return <NgolabNeonSlither onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
       default:
         return <div className="text-white p-4">Game tidak ditemukan</div>;
     }
@@ -92,7 +162,7 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
             type="button"
             aria-label="Kembali ke halaman sebelumnya"
             title="Kembali"
-            onClick={onClose}
+            onClick={handleCloseRequest}
             className="w-10 h-10 shrink-0 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg"
           >
             <ArrowLeft className="w-5 h-5" aria-hidden="true" />
@@ -103,6 +173,7 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
           <div className="drop-shadow-md">
             <h3 className="font-bold text-white text-sm tracking-tight truncate w-20 sm:w-32">{game.title}</h3>
             <p className="text-[10px] text-gray-300 font-semibold tracking-widest uppercase">{game.category}</p>
+            <p className="mt-0.5 text-[10px] font-bold text-[#ffd29a] drop-shadow-md">Target: {target.targetLabel} &rarr; 10 poin</p>
           </div>
         </div>
 
@@ -110,7 +181,7 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
           <button 
             type="button"
             title="Close game"
-            onClick={onClose}
+            onClick={handleCloseRequest}
             className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg"
           >
             <X className="w-5 h-5 pointer-events-none" />
@@ -171,6 +242,22 @@ export default function GameContainerMobile({ userId, gameId, onClose }: GameCon
                   <p className="mt-1 text-2xl font-black tabular-nums tracking-tight text-[#4d6041] sm:text-3xl">#42</p>
                 </div>
               </div>
+
+              <p className="mt-3 text-[11px] font-bold text-[#8a6a4b]">
+                Target game: {target.targetLabel} (skor {target.targetScore}) &mdash; {gameOverData.targetReached ? 'tercapai' : 'belum tercapai'}
+              </p>
+
+              {gameOverData.sync !== 'synced' && (
+                <p role="status" className="mt-3 rounded-2xl border border-[#e8d9c2] bg-[#fdf6ea] px-4 py-2.5 text-xs font-bold text-[#8a6a4b]">
+                  {gameOverData.sync === 'pending'
+                    ? 'Menyinkronkan poin ke sistem...'
+                    : gameOverData.sync === 'target'
+                      ? 'Target game ini belum tercapai, jadi belum ada poin. Main lagi dan capai targetnya!'
+                      : gameOverData.sync === 'capped'
+                        ? capMessage(gameOverData.capReason ?? 'game')
+                        : 'Poin belum tercatat oleh sistem. Silakan coba lagi nanti.'}
+                </p>
+              )}
 
               <div className="mt-5 rounded-2xl bg-[#f5eee4] px-4 py-3.5 sm:mt-5 sm:px-5">
                 <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-[#755c49]">

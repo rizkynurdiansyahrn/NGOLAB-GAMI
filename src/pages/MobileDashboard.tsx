@@ -21,7 +21,8 @@ interface MobileDashboardProps {
   user: AppUser;
   onPlay: (gameId: string) => void;
   onSelectDetail?: (game: Game) => void;
-  onAvatarClick?: () => void;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
   onRefreshUser?: () => void;
   onSeeAll?: () => void;
 }
@@ -30,7 +31,8 @@ export default function MobileDashboard({
   user,
   onPlay,
   onSelectDetail,
-  onAvatarClick,
+  onOpenProfile,
+  onLogout,
   onSeeAll,
 }: MobileDashboardProps) {
   const popularGames = dummyGames.slice(0, 3);
@@ -44,7 +46,8 @@ export default function MobileDashboard({
       <HeaderNav
         breadcrumb="Dashboard Pemain"
         user={user}
-        onAvatarClick={onAvatarClick}
+        onOpenProfile={onOpenProfile}
+        onLogout={onLogout}
       />
 
       {/* Featured game banner */}

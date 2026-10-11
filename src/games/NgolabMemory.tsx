@@ -5,9 +5,10 @@ import { ArrowRight, Clock3, Layers3, MousePointer2, Sparkles, Star, Trophy, Zap
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
-export default function NgolabMemory({ onGameOver, onExit }: GameProps) {
+export default function NgolabMemory({ onGameOver, onExit, onScoreChange }: GameProps) {
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -89,12 +90,20 @@ export default function NgolabMemory({ onGameOver, onExit }: GameProps) {
         setFeedback(streak > 0 ? 'Kombo x' + (streak + 1) + '! Pasangan ditemukan.' : 'Pasangan ditemukan! Lanjutkan kombo.');
         setTimeout(() => {
           setCards(prev => prev.map((c, i) => (i === first || i === second) ? { ...c, matched: true } : c));
-          setScore(s => s + 10);
+          setScore((s) => {
+            const next = s + 10;
+            onScoreChange?.(next);
+            return next;
+          });
           setMatchedPairs(m => {
             const next = m + 1;
             if (next === emojis.length) {
               // Win! add time bonus
-              setScore(s => s + 10 + timeLeft);
+              setScore((s) => {
+                const next = s + 10 + timeLeft;
+                onScoreChange?.(next);
+                return next;
+              });
               setGameState('GAMEOVER');
             }
             return next;

@@ -9,15 +9,29 @@ import MobileLogin from './pages/MobileLogin';
 import MobileAppLayout from './pages/MobileAppLayout';
 import GameContainerMobile from './pages/GameContainerMobile';
 import type { AppUser } from './data/appData';
+import {
+  loadAuthSession,
+  saveAuthSession,
+  clearAuthSession,
+} from './lib/authSession';
 
 type MobileAppState = 'login' | 'hub' | 'playing';
 
+// Pulihkan sesi tersimpan sekali saat aplikasi dimuat agar refresh tidak
+// mengembalikan pengguna ke halaman login.
+const restoredSession = loadAuthSession();
+
 export default function App() {
-  const [state, setState] = useState<MobileAppState>('login');
+  const [state, setState] = useState<MobileAppState>(
+    restoredSession ? 'hub' : 'login',
+  );
   const [activeGame, setActiveGame] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const userId = currentUser?.id ?? null;
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(
+    restoredSession?.user ?? null,
+  );
+  const [authToken, setAuthToken] = useState<string | null>(
+    restoredSession?.token ?? null,
+  );
 
   // Transitions
   const toLogin = () => setState('login');
@@ -49,6 +63,7 @@ export default function App() {
                 if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
                   document.activeElement.blur();
                 }
+                saveAuthSession(session);
                 setCurrentUser(session.user);
                 setAuthToken(session.token);
                 toHub();
@@ -71,6 +86,7 @@ export default function App() {
               initialUser={currentUser}
               accessToken={authToken}
               onLogout={() => {
+                clearAuthSession();
                 setCurrentUser(null);
                 setAuthToken(null);
                 toLogin();
@@ -93,8 +109,11 @@ export default function App() {
             exit={{ y: "100%" }}
           >
             <GameContainerMobile 
-              userId={userId}
-              gameId={activeGame} 
+              userId={currentUser?.id ?? null}
+              gameId={activeGame}
+              memberId={currentUser?.memberId ?? null}
+              accessToken={authToken}
+              onPointsEarned={(points) => setCurrentUser((previous) => (previous ? { ...previous, points, pointsAvailable: true } : previous))}
               onClose={closeGame} 
             />
           </motion.div>

@@ -13,6 +13,7 @@ import {
 import { Game, dummyGames } from "../data/dummyData";
 import HeaderNav from "../components/HeaderNav";
 import { AppUser } from "../data/appData";
+import { getGameTarget } from "../lib/gameTargets";
 
 interface GameDetailProps {
   gameId?: string;
@@ -20,7 +21,8 @@ interface GameDetailProps {
   user?: AppUser;
   onBack: () => void;
   onPlay: (gameId: string) => void;
-  onAvatarClick?: () => void;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
 export default function GameDetail({
@@ -29,12 +31,14 @@ export default function GameDetail({
   user,
   onBack,
   onPlay,
-  onAvatarClick,
+  onOpenProfile,
+  onLogout,
 }: GameDetailProps) {
   const [activeTab, setActiveTab] = useState<"deskripsi" | "aturan" | "hadiah">("deskripsi");
 
   // Find game details from dummyGames if not provided
   const game = gameObj || dummyGames.find((g) => g.id === gameId) || dummyGames[0];
+  const target = getGameTarget(game.id);
 
   const screenshots = [
     game.thumbnail,
@@ -46,7 +50,7 @@ export default function GameDetail({
     <div className="flex flex-col min-h-screen w-full bg-[#F3F4F8] font-sans pb-24">
       {/* Top Header Nav Bar */}
       <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-4">
-        <HeaderNav breadcrumb="Game Detail" user={user} onAvatarClick={onAvatarClick} />
+        <HeaderNav breadcrumb="Game Detail" user={user} onOpenProfile={onOpenProfile} onLogout={onLogout} />
       </div>
 
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 space-y-6">
@@ -215,7 +219,7 @@ export default function GameDetail({
                   <p className="font-bold text-slate-900">Potensi Hadiah:</p>
                   <div className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
                     <Zap className="w-5 h-5 text-[#FF5500]" />
-                    <span className="text-slate-800 font-semibold">Dapatkan hingga 500 Poin per sesi permainan!</span>
+                    <span className="text-slate-800 font-semibold">Capai target &ldquo;{target.targetLabel}&rdquo; lalu dapatkan 10 poin. Keluar sebelum target tercapai berarti belum dapat poin. Maksimal 10 poin per game per hari, 50 poin per hari untuk semua game (game tetap bisa dimainkan setelah limit tercapai).</span>
                   </div>
                 </div>
               )}

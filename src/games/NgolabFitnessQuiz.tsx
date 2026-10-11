@@ -5,6 +5,7 @@ import { Activity, ArrowRight, Clock3, Dumbbell, Flame, HeartPulse, Sparkles, Tr
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 const questionsDB = [
@@ -25,7 +26,7 @@ const questionsDB = [
   { question: "Cara terbaik mengukur kemajuan program kebugaran adalah?", options: ["Timbang berat setiap jam", "Melihat perubahan komposisi tubuh", "Hanya melihat skala timbangan", "Berhenti makan sehari"], answer: 1 }
 ];
 
-export default function NgolabFitnessQuiz({ onGameOver, onExit }: GameProps) {
+export default function NgolabFitnessQuiz({ onGameOver, onExit, onScoreChange }: GameProps) {
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -76,7 +77,11 @@ export default function NgolabFitnessQuiz({ onGameOver, onExit }: GameProps) {
 
   const handleAnswer = (isCorrect: boolean) => {
     if (isCorrect) {
-      setScore(s => s + 10);
+      setScore((s) => {
+        const next = s + 10;
+        onScoreChange?.(next);
+        return next;
+      });
     } else {
       setTimeLeft(t => Math.max(0, t - 3));
       setShakeTimer(true);

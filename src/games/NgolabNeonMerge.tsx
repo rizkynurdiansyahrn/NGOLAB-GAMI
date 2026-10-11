@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, Grid2X2, Layers3, MousePointer2, RotateCcw, Sparkle
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type PaletteColor = { name: string; className: string };
@@ -31,7 +32,7 @@ const getNeighbors = (index: number, columns: number, rows: number) => {
   return neighbors;
 };
 
-export default function NgolabNeonMerge({ onGameOver, onExit }: GameProps) {
+export default function NgolabNeonMerge({ onGameOver, onExit, onScoreChange }: GameProps) {
   const columns = 6;
   const rows = 6;
   const gameOverReportedRef = useRef(false);
@@ -122,7 +123,11 @@ export default function NgolabNeonMerge({ onGameOver, onExit }: GameProps) {
     const nextGrid = [...grid];
     group.forEach((tileIndex) => { nextGrid[tileIndex] = null; });
     setGrid(refillGrid(nextGrid));
-    setScore((previous) => previous + group.length * 8 + (group.length >= 6 ? 20 : 0));
+    setScore((previous) => {
+      const next = previous + group.length * 8 + (group.length >= 6 ? 20 : 0);
+      onScoreChange?.(next);
+      return next;
+    });
     setTilesCleared((previous) => previous + group.length);
     setMessage(group.length >= 6
       ? `Kombo besar! ${group.length} ubin hilang, bonus +20 poin.`

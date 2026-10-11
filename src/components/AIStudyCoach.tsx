@@ -32,6 +32,7 @@ import {
   type StudySource,
   type StudyCitation,
 } from "../lib/studyNotebook";
+import { fetchWithRetry } from "../lib/studyCoachFetch";
 
 interface AIStudyCoachProps {
   taskTitle?: string;
@@ -97,6 +98,8 @@ export default function AIStudyCoach({
   const [uploadName, setUploadName] = useState("");
   const [error, setError] = useState("");
   const [sourceError, setSourceError] = useState("");
+  const [statusHint, setStatusHint] = useState("");
+  const [serviceNotice, setServiceNotice] = useState("");
   const [storageNotice, setStorageNotice] = useState("");
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
@@ -141,6 +144,8 @@ export default function AIStudyCoach({
     setShowNoteForm(false);
     setNoteTitle("");
     setNoteText("");
+    setStatusHint("");
+    setServiceNotice("");
     void savesRef.current
       .then(() => readNotebook(conversationKey))
       .then((notebook) => {
@@ -185,6 +190,47 @@ export default function AIStudyCoach({
       });
   }, [messages, isSending, isOpen]);
 
+  // Beri tahu pengguna ketika jawaban membutuhkan waktu sangat panjang.
+  useEffect(() => {
+    if (!isSending) return;
+    const timer = setTimeout(() => {
+      setStatusHint(
+        (current) =>
+          current ||
+          "Masih menyiapkan jawaban. Layanan AI membutuhkan waktu ekstra, mohon tunggu.",
+      );
+    }, 45_000);
+    return () => clearTimeout(timer);
+  }, [isSending]);
+
+  // Periksa kesiapan layanan sekali saat panel dibuka, agar masalah
+  // konfigurasi terlihat lebih awal daripada setelah menunggu puluhan detik.
+  const serviceCheckRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen || serviceCheckRef.current) return;
+    serviceCheckRef.current = true;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch("/api/health", {
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(10_000),
+          ]),
+        });
+        const data = response.ok ? await response.json() : null;
+        if (data && data.studyCoachConfigured === false)
+          setServiceNotice(
+            "Layanan Study Coach belum dikonfigurasi di server. Jawaban belum dapat dihasilkan sampai konfigurasi diperbaiki.",
+          );
+        else if (data) setServiceNotice("");
+      } catch {
+        /* Pemeriksaan awal hanya informasi; kegagalan diabaikan. */
+      }
+    })();
+    return () => controller.abort();
+  }, [isOpen]);
+
   const updateSources = (updated: StudySource[]) => {
     setSources(updated);
     setMessages([]);
@@ -221,14 +267,21 @@ export default function AIStudyCoach({
           throw new Error("Ukuran file maksimal 10 MB.");
         const body = new FormData();
         body.append("file", file);
-        const response = await fetch("/api/study-coach/sources/file", {
-          method: "POST",
-          body,
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(90_000),
-          ]),
-        });
+        // Unggahan juga dapat terkena gangguan sesaat layanan, jadi pakai
+        // percobaan ulang otomatis yang sama seperti pengiriman pertanyaan.
+        const response = await fetchWithRetry(
+          "/api/study-coach/sources/file",
+          { method: "POST", body },
+          {
+            attempts: 2,
+            timeoutMs: 90_000,
+            signal: controller.signal,
+            onRetry: ({ attempt, attempts }) =>
+              setStatusHint(
+                `Pemroses file sedang sibuk. Mengunggah ulang (${attempt + 1} dari ${attempts})…`,
+              ),
+          },
+        );
         const data = await response.json().catch(() => null);
         if (!response.ok)
           throw new Error(
@@ -262,6 +315,7 @@ export default function AIStudyCoach({
       setIsUploading(false);
       setUploadName("");
       uploadRef.current = null;
+      setStatusHint("");
     }
   };
 
@@ -325,23 +379,34 @@ export default function AIStudyCoach({
     setMessages((current) => [...current, { role: "user", text: message }]);
     setDraft("");
     setError("");
+    setStatusHint("");
     setIsSending(true);
     try {
-      const response = await fetch("/api/study-coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          taskTitle: taskTitle ?? "",
-          durationMinutes,
-          history,
-          sources: activeSources,
-        }),
-        signal: AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(300_000),
-        ]),
-      });
+      // Percobaan ulang otomatis menjaga jawaban tetap muncul ketika layanan
+      // RAG memutus permintaan lama (misalnya balasan 502) sesekali.
+      const response = await fetchWithRetry(
+        "/api/study-coach",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            taskTitle: taskTitle ?? "",
+            durationMinutes,
+            history,
+            sources: activeSources,
+          }),
+        },
+        {
+          attempts: 3,
+          timeoutMs: 90_000,
+          signal: controller.signal,
+          onRetry: ({ attempt, attempts }) =>
+            setStatusHint(
+              `Layanan AI sedang sibuk. Menghubungkan ulang otomatis (${attempt + 1} dari ${attempts})…`,
+            ),
+        },
+      );
       const data = await response.json().catch(() => null);
       if (!response.ok)
         throw new Error(
@@ -406,6 +471,7 @@ export default function AIStudyCoach({
         setIsSending(false);
         requestRef.current = null;
       }
+      setStatusHint("");
     }
   };
 
@@ -609,6 +675,14 @@ export default function AIStudyCoach({
                   className="whitespace-pre-wrap break-words rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800"
                 >
                   {sourceError}
+                </p>
+              )}
+              {serviceNotice && (
+                <p
+                  role="alert"
+                  className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800"
+                >
+                  {serviceNotice}
                 </p>
               )}
               {!sources.length && hydratedKey === conversationKey && (
@@ -838,6 +912,14 @@ export default function AIStudyCoach({
                     Coach sedang menyiapkan materi dan menyusun jawaban.
                     Proses ini dapat memerlukan beberapa menit.
                   </div>
+                )}
+                {statusHint && (
+                  <p
+                    role="status"
+                    className="px-1 text-xs leading-relaxed text-violet-600"
+                  >
+                    {statusHint}
+                  </p>
                 )}
                 <div ref={endOfMessagesRef} />
               </div>

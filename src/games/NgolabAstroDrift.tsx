@@ -5,6 +5,7 @@ import { ArrowDown, Clock3, Gamepad2, Heart, Keyboard, MousePointer2, Orbit, Rot
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type Star = { x: number; y: number; z: number; speed: number };
@@ -15,7 +16,7 @@ type Particle = { x: number; y: number; vx: number; vy: number; life: number; co
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-export default function NgolabAstroDrift({ onGameOver, onExit }: GameProps) {
+export default function NgolabAstroDrift({ onGameOver, onExit, onScoreChange }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
@@ -193,6 +194,7 @@ export default function NgolabAstroDrift({ onGameOver, onExit }: GameProps) {
         if (dist < orb.radius + 24) {
           state.score += 25;
           setScore(state.score);
+          onScoreChange?.(state.score);
           createParticles(orb.x, orb.y, '#60a5fa');
           return false;
         }

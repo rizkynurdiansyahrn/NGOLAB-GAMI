@@ -5,6 +5,7 @@ import { ChefHat, Clock3, Heart, Layers3, Sparkles, Trophy } from 'lucide-react'
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type GamePhase = 'START' | 'PLAYING' | 'GAMEOVER';
@@ -165,7 +166,7 @@ const drawIngredient = (ctx: CanvasRenderingContext2D, layer: BurgerLayer, glow 
   ctx.restore();
 };
 
-export default function NgolabBurger({ onGameOver, onExit }: GameProps) {
+export default function NgolabBurger({ onGameOver, onExit, onScoreChange }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sizeRef = useRef({ width: 0, height: 0 });
   const onGameOverRef = useRef(onGameOver);
@@ -185,6 +186,7 @@ export default function NgolabBurger({ onGameOver, onExit }: GameProps) {
 
   const syncHud = useCallback(() => {
     const current = stateRef.current;
+    onScoreChange?.(current.score);
     setHud({
       score: current.score,
       time: current.time,
@@ -192,7 +194,7 @@ export default function NgolabBurger({ onGameOver, onExit }: GameProps) {
       streak: current.streak,
       layers: Math.max(0, current.stack.length - 1),
     });
-  }, []);
+  }, [onScoreChange]);
 
   const dropIngredient = useCallback(() => {
     const current = stateRef.current;

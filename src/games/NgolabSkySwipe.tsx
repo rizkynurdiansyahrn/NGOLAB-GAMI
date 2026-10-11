@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, Cloud, Heart, MousePointer2, Sparkles, Star, Trophy
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type Target = {
@@ -35,7 +36,7 @@ const distanceFromPointToSegment = (x: number, y: number, startX: number, startY
   return Math.hypot(x - nearestX, y - nearestY);
 };
 
-export default function NgolabSkySwipe({ onGameOver, onExit }: GameProps) {
+export default function NgolabSkySwipe({ onGameOver, onExit, onScoreChange }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
@@ -163,6 +164,7 @@ export default function NgolabSkySwipe({ onGameOver, onExit }: GameProps) {
           } else {
             state.score += target.type === 'star' ? 25 : 15;
             setScore(state.score);
+            onScoreChange?.(state.score);
             setHint(target.type === 'star' ? 'Bintang ditangkap!' : 'Awan disapu!');
           }
           target.y = state.height + target.radius + 80;

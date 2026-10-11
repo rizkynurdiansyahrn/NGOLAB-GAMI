@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Home,
-  Trophy,
-  Gift,
   User,
   Gamepad2,
   BookOpen,
@@ -11,7 +9,6 @@ import MobileDashboard from "./MobileDashboard";
 import Library from "./Library";
 import GameDetail from "./GameDetail";
 import MobileLeaderboard from "./MobileLeaderboard";
-import MobileRewards from "./MobileRewards";
 import MobilePatungan from "./MobilePatungan";
 import MobileStudyTracker from "./MobileStudyTracker";
 import Profile from "./Profile";
@@ -21,9 +18,16 @@ import SettingsPage from "./Settings";
 import { AppUser } from "../data/appData";
 import { Game } from "../data/dummyData";
 import EditProfileModal from "../components/EditProfileModal";
-import { AnimatePresence } from "motion/react";
 import { API_BASE_URL } from "../lib/api";
-import { avatarUrlForApi, normalizeUserProfile } from "../lib/userProfile";
+import { getLoyaltyBalance } from "../lib/pointlab";
+import { normalizeUserProfile } from "../lib/userProfile";
+import {
+  buildProfileUpdatePayload,
+  clearProfileFallback,
+  mergeProfileFallback,
+  readProfileFallback,
+  writeProfileFallback,
+} from "../lib/profileEdits";
 
 type Tab =
   | "home"
@@ -32,7 +36,6 @@ type Tab =
   | "leaderboard"
   | "patungan"
   | "study"
-  | "rewards"
   | "profile"
   | "achievement"
   | "notifications"
@@ -53,12 +56,16 @@ export default function MobileAppLayout({
   const [hasOpenedStudy, setHasOpenedStudy] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const userId = initialUser.id;
-  const [user, setUser] = useState<AppUser>(() => normalizeUserProfile(initialUser));
+  const [user, setUser] = useState<AppUser>(() =>
+    mergeProfileFallback(normalizeUserProfile(initialUser), readProfileFallback(initialUser.id))
+  );
   const [profileError, setProfileError] = useState("");
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   useEffect(() => {
-    setUser(normalizeUserProfile(initialUser));
+    setUser((previous) =>
+      mergeProfileFallback(normalizeUserProfile(initialUser, previous), readProfileFallback(initialUser.id))
+    );
   }, [initialUser]);
 
   const refreshUserProfile = useCallback(async (signal?: AbortSignal) => {
@@ -73,8 +80,24 @@ export default function MobileAppLayout({
       const data = await response.json();
       if (!data.user || String(data.user.id) !== userId) throw new Error("Invalid profile response");
       if (signal?.aborted) return;
-      setUser((previous) => normalizeUserProfile(data.user, previous));
+      setUser((previous) =>
+        mergeProfileFallback(normalizeUserProfile(data.user, previous), readProfileFallback(userId))
+      );
       setProfileError("");
+      // Saldo resmi Loyalty Points (loyalty_accounts.current_points) menimpa
+      // angka dari profil biasa bila member & token tersedia.
+      const memberId = typeof data.user.memberId === "string" || typeof data.user.member_id === "string"
+        ? String(data.user.memberId ?? data.user.member_id)
+        : user?.memberId ?? null;
+      if (memberId && accessToken) {
+        try {
+          const balance = await getLoyaltyBalance(memberId, accessToken, signal);
+          if (signal?.aborted || !balance) return;
+          setUser((previous) => ({ ...previous, points: balance.currentPoints, pointsAvailable: true }));
+        } catch {
+          // Saldo loyalty gagal dimuat: nilai terakhir dari profil tetap dipakai.
+        }
+      }
     } catch (err) {
       if (signal?.aborted) return;
       console.warn("Gagal memperbarui profil:", err);
@@ -109,7 +132,8 @@ export default function MobileAppLayout({
             user={user}
             onPlay={onPlay}
             onSelectDetail={handleSelectDetail}
-            onAvatarClick={() => setActiveTab("profile")}
+            onOpenProfile={() => setActiveTab("profile")}
+            onLogout={onLogout}
             onRefreshUser={refreshUserProfile}
             onSeeAll={() => setActiveTab("library")}
           />
@@ -119,7 +143,8 @@ export default function MobileAppLayout({
             user={user}
             onPlay={onPlay}
             onSelectDetail={handleSelectDetail}
-            onAvatarClick={() => setActiveTab("profile")}
+            onOpenProfile={() => setActiveTab("profile")}
+            onLogout={onLogout}
           />
         )}
         {activeTab === "detail" && (
@@ -128,7 +153,8 @@ export default function MobileAppLayout({
             user={user}
             onBack={() => setActiveTab("library")}
             onPlay={onPlay}
-            onAvatarClick={() => setActiveTab("profile")}
+            onOpenProfile={() => setActiveTab("profile")}
+            onLogout={onLogout}
           />
         )}
         {activeTab === "leaderboard" && <MobileLeaderboard user={user} />}
@@ -145,10 +171,9 @@ export default function MobileAppLayout({
         {activeTab === "patungan" && <MobilePatungan userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
         {hasOpenedStudy && (
           <div className={activeTab === "study" ? "block" : "hidden"} aria-hidden={activeTab !== "study"}>
-            <MobileStudyTracker userId={userId} user={user} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
+            <MobileStudyTracker userId={userId} user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
           </div>
         )}
-        {activeTab === "rewards" && <MobileRewards user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} onPointsUpdated={(points) => setUser((previous) => ({ ...previous, points, pointsAvailable: true }))} />}
       </div>
 
       {/* Bottom Floating Navigation Bar (Screenshots 3, 4, 5) */}
@@ -169,13 +194,6 @@ export default function MobileAppLayout({
             label="Game"
           />
           <NavButton
-            id="tab_reward"
-            active={activeTab === "rewards"}
-            onClick={() => setActiveTab("rewards")}
-            icon={<Gift className="w-5 h-5" />}
-            label="Hadiah"
-          />
-          <NavButton
             id="tab_study"
             active={activeTab === "study"}
             onClick={() => {
@@ -194,34 +212,70 @@ export default function MobileAppLayout({
         </div>
       </div>
 
-      <AnimatePresence>
-        {isEditProfileOpen && (
+      {isEditProfileOpen && (
           <EditProfileModal
             isOpen={isEditProfileOpen}
             user={user}
             onClose={() => setIsEditProfileOpen(false)}
             onSave={async (updatedUser) => {
               if (!userId || !accessToken) throw new Error("Silakan masuk kembali sebelum mengubah profil.");
-              const changes: { nama: string; avatar_url?: string } = { nama: updatedUser.name };
-              if (updatedUser.avatar !== user.avatar) {
-                changes.avatar_url = avatarUrlForApi(updatedUser.avatar, userId);
-              }
-              const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify(changes),
+              const payload = buildProfileUpdatePayload({
+                userId,
+                name: updatedUser.name,
+                phone: updatedUser.phone,
+                avatar: updatedUser.avatar,
               });
-              const data = await response.json().catch(() => null);
-              if (!response.ok) throw new Error(data?.message || "Perubahan profil belum dapat disimpan.");
-              if (!data?.user || String(data.user.id) !== userId) throw new Error("Data profil hasil penyimpanan belum tersedia.");
-              setUser((previous) => normalizeUserProfile(data.user, previous));
+              let sync: "synced" | "local" = "local";
+              let fatalError: Error | null = null;
+              let serverUser: unknown = null;
+              try {
+                const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                  body: JSON.stringify(payload),
+                });
+                const data = await response.json().catch(() => null);
+                if (response.ok) {
+                  if (!data?.user || String(data.user.id) !== userId) {
+                    fatalError = new Error("Data profil hasil penyimpanan belum tersedia.");
+                  } else {
+                    serverUser = data.user;
+                    sync = "synced";
+                  }
+                } else if (response.status === 401 || response.status === 403) {
+                  // Server belum mengizinkan akun ini mengubah profil — simpan di perangkat.
+                  sync = "local";
+                } else {
+                  fatalError = new Error(data?.message || "Perubahan profil belum dapat disimpan.");
+                }
+              } catch {
+                // Jaringan gagal — simpan di perangkat agar perubahan tidak hilang.
+                sync = "local";
+              }
+              if (fatalError) throw fatalError;
+              if (sync === "synced") {
+                clearProfileFallback(userId);
+                setUser((previous) => normalizeUserProfile(serverUser, previous));
+              } else {
+                writeProfileFallback(userId, {
+                  name: updatedUser.name,
+                  phone: updatedUser.phone,
+                  avatar: updatedUser.avatar,
+                });
+                setUser((previous) => ({
+                  ...previous,
+                  name: updatedUser.name.trim(),
+                  phone: updatedUser.phone ?? "",
+                  avatar: updatedUser.avatar,
+                }));
+              }
+              return { synced: sync === "synced" };
             }}
           />
         )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { AppUser } from "../data/appData";
+import { earnPoints } from "../lib/pointlab";
 import AIStudyCoach from "../components/AIStudyCoach";
 
 export type TaskStatus = "todo" | "in_progress" | "completed";
@@ -60,6 +61,7 @@ type LegacyStudySession = Omit<StudySession, "status"> & { status: "focus_check"
 interface MobileStudyTrackerProps {
   userId: string | null;
   user: AppUser;
+  accessToken?: string | null;
   onRefreshUser?: () => void;
   isActive?: boolean;
 }
@@ -160,7 +162,7 @@ function statusLabel(status: TaskStatus): string {
   return "Belum dikerjakan";
 }
 
-export default function MobileStudyTracker({ userId, user, onRefreshUser, isActive = true }: MobileStudyTrackerProps) {
+export default function MobileStudyTracker({ userId, user, accessToken = null, onRefreshUser, isActive = true }: MobileStudyTrackerProps) {
   const storageKey = `gami_study_${userId ?? "guest"}`;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState("");
@@ -632,23 +634,25 @@ export default function MobileStudyTracker({ userId, user, onRefreshUser, isActi
       }
 
       if (earnedCoins > 0) {
+        // API resmi Loyalty Points (PointLab) menggantikan legacy earn-coins.
+        const memberId = user?.memberId ?? null;
+        const description = taskCompleted
+          ? `Gami-Study: tugas selesai — ${current.taskTitle}`
+          : `Gami-Study: sesi fokus — ${current.taskTitle}`;
         try {
-          const rewardResponse = await fetch(`https://geasture.kolab.top/api/users/${userId}/earn-coins`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              amount: earnedCoins,
-              description: taskCompleted
-                ? `Gami-Study: tugas selesai — ${current.taskTitle}`
-                : `Gami-Study: sesi fokus — ${current.taskTitle}`,
-              session_id: current.id,
-              study_reward_cap: STUDY_REWARD_CAP,
-              study_reward_period_days: 3,
-              study_reward_total: nextRewardBudget.earnedCoins,
-              study_reward_cooldown_until: nextRewardBudget.cooldownUntil,
-            }),
-          });
-          rewardStatus = rewardResponse.ok ? "credited" : "pending";
+          if (memberId && accessToken) {
+            await earnPoints(memberId, accessToken, {
+              points: earnedCoins,
+              source: "GAMIFICATION",
+              referenceType: "STUDY_SESSION",
+              referenceId: current.id,
+              description,
+              idempotencyKey: `gammi-study-${current.id}`,
+            });
+            rewardStatus = "credited";
+          } else {
+            rewardStatus = "pending";
+          }
         } catch {
           rewardStatus = "pending";
         }

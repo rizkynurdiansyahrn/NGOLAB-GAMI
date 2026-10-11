@@ -5,9 +5,10 @@ import { ArrowRight, Clock3, Heart, MousePointer2, ShoppingBasket, Sparkles, Tro
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
-export default function NgolabCatch({ onGameOver, onExit }: GameProps) {
+export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [gameOverReason, setGameOverReason] = useState("WAKTU HABIS!");
@@ -81,6 +82,7 @@ export default function NgolabCatch({ onGameOver, onExit }: GameProps) {
     };
 
     const syncHud = () => {
+      onScoreChange?.(stateRef.current.score);
       setHudData({
         score: stateRef.current.score,
         time: stateRef.current.time,

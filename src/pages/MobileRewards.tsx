@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Gift, Wallet } from "lucide-react";
 import type { AppUser, Voucher } from "../data/appData";
-import { API_BASE_URL, REMOTE_API_BASE_URL } from "../lib/api";
+import { REMOTE_API_BASE_URL } from "../lib/api";
+import { listRedemptions, listRewards, redeemReward } from "../lib/pointlab";
+import type { RedemptionResult } from "../lib/pointlab";
 
 function normalizeVoucherImage(...values: unknown[]): string {
   const candidate = values.find((value) => {
@@ -53,13 +55,6 @@ function VoucherImage({ src, title }: { src: string; title: string }) {
   );
 }
 
-interface Redemption {
-  redemptionId: string;
-  rewardName: string;
-  redemptionCode: string;
-  status: string;
-}
-
 interface MobileRewardsProps {
   user: AppUser;
   accessToken: string | null;
@@ -67,15 +62,9 @@ interface MobileRewardsProps {
   onPointsUpdated?: (points: number) => void;
 }
 
-async function readResponse(response: Response) {
-  const body = await response.json().catch(() => null);
-  if (!response.ok || body?.success === false) throw new Error(body?.message || "Data hadiah belum tersedia.");
-  return body?.data ?? body;
-}
-
 export default function MobileRewards({ user, accessToken, onRefreshUser, onPointsUpdated }: MobileRewardsProps) {
   const [voucherList, setVoucherList] = useState<Voucher[]>([]);
-  const [activeVouchers, setActiveVouchers] = useState<Redemption[]>([]);
+  const [activeVouchers, setActiveVouchers] = useState<RedemptionResult[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [voucherNotice, setVoucherNotice] = useState("");
@@ -89,19 +78,16 @@ export default function MobileRewards({ user, accessToken, onRefreshUser, onPoin
     const controller = new AbortController();
     setCatalogLoading(true);
     setCatalogError("");
-    fetch(API_BASE_URL + "/api/rewards", { signal: controller.signal, cache: "no-store" })
-      .then(readResponse)
+    listRewards(controller.signal)
       .then((items) => {
         if (controller.signal.aborted) return;
-        if (!Array.isArray(items)) throw new Error("Katalog hadiah belum tersedia.");
-        const rewards = items.filter((item) =>
-          item && item.id && typeof item.name === "string" &&
-          typeof item.pointsCost === "number" && Number.isFinite(item.pointsCost) && item.pointsCost >= 0 &&
-          item.status === "ACTIVE" && (item.stock === undefined || item.stock > 0)
-        ).map((item): Voucher => ({
-          id: String(item.id), title: item.name, description: item.description || "",
-          pointsCost: item.pointsCost, category: item.category || "Food",
-          image: normalizeVoucherImage(item.image, item.image_url),
+        const rewards = items.map((item): Voucher => ({
+          id: item.id,
+          title: item.name,
+          description: item.description,
+          pointsCost: item.pointsCost,
+          category: "Food",
+          image: normalizeVoucherImage(item.image),
         }));
         setVoucherList(rewards);
       })
@@ -119,16 +105,15 @@ export default function MobileRewards({ user, accessToken, onRefreshUser, onPoin
     }
     const controller = new AbortController();
     setVoucherNotice("Memuat voucher akun...");
-    fetch(API_BASE_URL + "/api/members/" + encodeURIComponent(user.memberId) + "/redemptions", {
-      headers: { Authorization: "Bearer " + accessToken }, signal: controller.signal, cache: "no-store",
-    }).then(readResponse).then((items) => {
-      if (controller.signal.aborted) return;
-      if (!Array.isArray(items)) throw new Error("Data voucher belum tersedia.");
-      setActiveVouchers(items.filter((item) => item?.redemptionId && item?.redemptionCode));
-      setVoucherNotice("");
-    }).catch(() => {
-      if (!controller.signal.aborted) setVoucherNotice("Voucher akun belum dapat dimuat. Silakan coba lagi nanti.");
-    });
+    listRedemptions(user.memberId, accessToken, controller.signal)
+      .then((items) => {
+        if (controller.signal.aborted) return;
+        setActiveVouchers(items);
+        setVoucherNotice("");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setVoucherNotice("Voucher akun belum dapat dimuat. Silakan coba lagi nanti.");
+      });
     return () => controller.abort();
   }, [user.memberId, accessToken, reload]);
 
@@ -137,12 +122,7 @@ export default function MobileRewards({ user, accessToken, onRefreshUser, onPoin
     setIsRedeeming(true);
     setRedeemError("");
     try {
-      const response = await fetch(API_BASE_URL + "/api/members/" + encodeURIComponent(user.memberId) + "/rewards/" + encodeURIComponent(selectedVoucher.id) + "/redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken, "Idempotency-Key": idempotencyKey.current },
-        body: JSON.stringify({}),
-      });
-      const result = await readResponse(response);
+      const result = await redeemReward(user.memberId, selectedVoucher.id, accessToken, idempotencyKey.current);
       if (!result?.redemptionId || !result?.redemptionCode) throw new Error("Hasil penukaran belum tersedia. Coba kembali untuk memeriksa penukaran yang sama.");
       setActiveVouchers((items) => [result, ...items.filter((item) => item.redemptionId !== result.redemptionId)]);
       if (typeof result.remainingPoints === "number" && Number.isFinite(result.remainingPoints)) onPointsUpdated?.(result.remainingPoints);

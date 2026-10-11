@@ -17,10 +17,11 @@ interface LibraryProps {
   user?: AppUser;
   onPlay: (gameId: string) => void;
   onSelectDetail?: (game: Game) => void;
-  onAvatarClick?: () => void;
+  onOpenProfile?: () => void;
+  onLogout?: () => void;
 }
 
-export default function Library({ user, onPlay, onSelectDetail, onAvatarClick }: LibraryProps) {
+export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, onLogout }: LibraryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -92,7 +93,8 @@ export default function Library({ user, onPlay, onSelectDetail, onAvatarClick }:
           avatar: user?.avatar || DEFAULT_AVATAR,
           level: user?.level ?? 1,
         }}
-        onAvatarClick={onAvatarClick}
+        onOpenProfile={onOpenProfile}
+        onLogout={onLogout}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
       />

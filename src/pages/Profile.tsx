@@ -1,10 +1,11 @@
 import React from "react";
 import {
   Activity, Award, CalendarDays, Check, ChevronRight, Coins,
-  Edit3, Flame, Gamepad2, LogOut, ShieldCheck, Sparkles, Star, Target, Trophy,
-  Zap,
+  Edit3, Flame, Gamepad2, Gift, LogOut, ShieldCheck, Sparkles, Star, Target, Trophy,
+  Zap, ExternalLink,
 } from "lucide-react";
 import { AppUser } from "../data/appData";
+import { VOUCHER_HINT, VOUCHER_URL } from "../lib/voucherLink";
 
 interface ProfileProps {
   user: AppUser;
@@ -112,6 +113,7 @@ export default function Profile({ user, onEdit, onLogout }: ProfileProps) {
             <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#FF5500]"><ShieldCheck className="h-4 w-4" /></span><div><h3 className="text-sm font-black text-slate-900">Informasi akun</h3><p className="text-[11px] text-slate-500">Detail pemainmu</p></div></div>
             <div className="divide-y divide-slate-100 px-5">
               <div className="flex items-center justify-between gap-4 py-3.5"><span className="text-xs font-medium text-slate-500">ID Pemain</span><span className="truncate rounded-lg bg-slate-50 px-2.5 py-1 font-mono text-[11px] font-bold text-slate-700">{user.id}</span></div>
+              <div className="flex items-center justify-between gap-4 py-3.5"><span className="text-xs font-medium text-slate-500">No telepon</span><span className="truncate rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-700">{user.phone?.trim() || "Belum diatur"}</span></div>
               <div className="flex items-center justify-between gap-4 py-3.5"><span className="text-xs font-medium text-slate-500">Status akun</span><span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Aktif</span></div>
               <div className="flex items-center justify-between gap-4 py-3.5"><span className="text-xs font-medium text-slate-500">Peringkat</span><span className="flex items-center gap-1.5 text-xs font-bold text-slate-700"><Trophy className="h-3.5 w-3.5 text-amber-500" /> Pemain Level {user.level}</span></div>
             </div>
@@ -121,8 +123,33 @@ export default function Profile({ user, onEdit, onLogout }: ProfileProps) {
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><Coins className="h-5 w-5" /></div>
             <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.14em] text-[#FF5500]">Koleksi reward</p>
             <h3 className="mt-1 text-lg font-black text-slate-900">{user.pointsAvailable === false ? "Saldo poin belum tersedia" : `${user.points.toLocaleString()} poin tersedia`}</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">Tukarkan poin yang kamu kumpulkan dengan hadiah seru di halaman Hadiah.</p>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5"><Sparkles className="h-4 w-4 text-[#FF5500]" /><span className="text-[11px] font-bold text-slate-600">Terus bermain, reward menantimu!</span></div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">Tukarkan poin yang kamu kumpulkan dengan voucher dari rekan NGOLAB di halaman <span className="font-bold text-slate-700">Voucher Teman</span>.</p>
+            {VOUCHER_URL ? (
+              <a
+                id="btn_voucher_teman"
+                href={VOUCHER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FF5500] px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-[#e64c00] focus:outline-none focus:ring-2 focus:ring-orange-400"
+              >
+                <Gift className="h-4 w-4" />
+                Buka Voucher Teman
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <button
+                id="btn_voucher_teman"
+                type="button"
+                disabled
+                title={VOUCHER_HINT}
+                className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-xs font-black text-[#FF5500] opacity-70"
+              >
+                <Gift className="h-4 w-4" />
+                Voucher Teman (segera)
+              </button>
+            )}
+            <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">{VOUCHER_URL ? "Halaman voucher dibuka di tab baru." : VOUCHER_HINT}</p>
+            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2.5"><Sparkles className="h-4 w-4 text-[#FF5500]" /><span className="text-[11px] font-bold text-slate-600">Terus bermain, poin terus bertambah!</span></div>
           </section>
 
           <section aria-label="Aksi akun" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

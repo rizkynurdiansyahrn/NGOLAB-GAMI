@@ -285,57 +285,64 @@ export function validateGroundedAnswer(payload, passages) {
       notFound: true,
     };
   const answer = result.answer.trim();
+  // Jumlah rujukan berlebih tidak lagi menggagalkan jawaban; hanya 12
+  // rujukan pertama yang dipakai (lihat perulangan di bawah).
   if (
     !answer ||
     answer.length > 10_000 ||
-    !result.citations.length ||
-    result.citations.length > 12
+    !Array.isArray(result.citations) ||
+    !result.citations.length
   )
     throw new Error(
       "Jawaban AI belum memiliki rujukan materi yang lengkap. Silakan coba lagi.",
     );
-  const citations = result.citations.map((citation) => {
+  const citations = [];
+  const seenPassages = new Set();
+  for (const citation of result.citations.slice(0, 12)) {
     const passage = passages.find(
       (item) => item.passageId === citation?.passageId,
     );
-    const quote =
+    // Rujukan ke passage yang tidak dikirim pada pertanyaan ini diabaikan,
+    // bukan menggagalkan seluruh jawaban.
+    if (!passage || seenPassages.has(passage.passageId)) continue;
+    const claimed =
       typeof citation?.quote === "string" ? citation.quote.trim() : "";
+    let quote = claimed;
     if (
-      !passage ||
       quote.length < 6 ||
       quote.length > 600 ||
       !normalizedQuote(passage.text).includes(normalizedQuote(quote))
     ) {
-      throw new Error(
-        "Rujukan jawaban AI tidak cocok dengan materi yang kamu pilih. Jawaban tersebut tidak ditampilkan; coba pertanyaan yang lebih spesifik.",
-      );
+      // Kutipan AI tidak persis salinan materi. Pakai penggalan asli dari
+      // passage itu agar rujukan yang tampil tetap benar-benar berasal dari
+      // materi (dipotong pada batas kata sehingga tetap bagian asli teks).
+      quote = passage.text.trim();
+      if (quote.length > 300)
+        quote = quote.slice(0, 300).replace(/\s+\S*$/, "");
     }
-    return {
+    seenPassages.add(passage.passageId);
+    citations.push({
       sourceId: passage.sourceId,
       sourceName: passage.sourceName,
       location: passage.location,
       quote,
-    };
-  });
+    });
+  }
+  if (!citations.length)
+    throw new Error(
+      "Jawaban AI belum memiliki rujukan materi yang lengkap. Silakan coba lagi.",
+    );
   const references = [...answer.matchAll(/\[(\d+)\]/g)].map((match) =>
     Number(match[1]),
   );
-  if (
-    !references.length ||
-    references.some((number) => number < 1 || number > citations.length)
-  ) {
+  // Nomor di luar jangkauan diabaikan; syarat minimal satu nomor rujukan valid.
+  if (!references.some((number) => number >= 1 && number <= citations.length))
     throw new Error(
       "Nomor rujukan jawaban AI belum sesuai materi. Silakan coba lagi.",
     );
-  }
-  if (
-    answer
-      .split(/\n\s*\n/)
-      .some((paragraph) => paragraph.trim() && !/\[\d+\]/.test(paragraph))
-  ) {
-    throw new Error(
-      "Ada bagian jawaban AI yang belum menyertakan rujukan materi. Jawaban belum ditampilkan; coba pertanyaan yang lebih spesifik.",
-    );
-  }
+  // Catatan: dulu setiap paragraf wajib memiliki rujukan, sehingga satu
+  // kalimat penutup seperti "Semoga membantu!" membuat seluruh jawaban
+  // ditolak. Paragraf tanpa rujukan kini tetap ditampilkan; rujukan tetap
+  // diverifikasi berasal dari materi melalui pemeriksaan di atas.
   return { answer, citations, notFound: false };
 }

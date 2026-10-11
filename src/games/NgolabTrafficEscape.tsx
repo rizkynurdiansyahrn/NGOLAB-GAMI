@@ -5,6 +5,7 @@ import { ArrowRight, CarFront, ChevronRight, CircleHelp, DoorOpen, Flag, RotateC
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type Orientation = 'H' | 'V';
@@ -179,7 +180,7 @@ const getReachablePosition = (vehicle: Vehicle, desiredRow: number, desiredCol: 
 
 const cloneVehicles = (vehicles: Vehicle[]) => vehicles.map((vehicle) => ({ ...vehicle }));
 
-export default function NgolabTrafficEscape({ onGameOver, onExit }: GameProps) {
+export default function NgolabTrafficEscape({ onGameOver, onExit, onScoreChange }: GameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const [phase, setPhase] = useState<GamePhase>('START');
@@ -213,6 +214,7 @@ export default function NgolabTrafficEscape({ onGameOver, onExit }: GameProps) {
     setMoves(nextMoves);
     setLastLevelScore(earned);
     setScore(nextScore);
+    onScoreChange?.(nextScore);
 
     if (levelIndex === levels.length - 1) {
       setPhase('GAMEOVER');

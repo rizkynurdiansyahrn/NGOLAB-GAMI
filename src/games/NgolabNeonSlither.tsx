@@ -5,6 +5,7 @@ import { ArrowRight, Crown, Gamepad2, MousePointer2, Sparkles, Trophy, X, Zap } 
 interface GameProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
+  onScoreChange?: (score: number) => void;
 }
 
 type Position = { x: number; y: number };
@@ -38,7 +39,7 @@ const getDistance = (x1: number, y1: number, x2: number, y2: number) => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
+export default function NgolabNeonSlither({ onGameOver, onExit, onScoreChange }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
@@ -350,6 +351,7 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
             // Eat food
             state.score += food.value;
             setScore(state.score);
+            onScoreChange?.(state.score);
 
             // Add segment
             const lastSeg = state.playerSnake!.segments[state.playerSnake!.segments.length - 1];
