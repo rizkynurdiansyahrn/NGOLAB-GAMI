@@ -8,25 +8,16 @@ import { AnimatePresence, motion } from 'motion/react';
 import MobileLogin from './pages/MobileLogin';
 import MobileAppLayout from './pages/MobileAppLayout';
 import GameContainerMobile from './pages/GameContainerMobile';
-import { mockUser, AppUser } from './data/appData';
+import type { AppUser } from './data/appData';
 
 type MobileAppState = 'login' | 'hub' | 'playing';
 
 export default function App() {
-  const getInitialState = (): MobileAppState => {
-    try {
-      if (typeof window !== 'undefined' && localStorage.getItem('ngolab_force_hub') === '1') {
-        return 'hub';
-      }
-    } catch (e) {
-      // ignore
-    }
-    return 'login';
-  };
-
-  const [state, setState] = useState<MobileAppState>(getInitialState());
+  const [state, setState] = useState<MobileAppState>('login');
   const [activeGame, setActiveGame] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const userId = currentUser?.id ?? null;
 
   // Transitions
   const toLogin = () => setState('login');
@@ -54,16 +45,20 @@ export default function App() {
             exit={{ y: -20, opacity: 0 }}
           >
             <MobileLogin 
-              onLogin={(userObj) => {
-                console.log("Logged in with user object:", userObj);
-                setUserId(userObj.id);
+              onLogin={(session) => {
+                if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+                setCurrentUser(session.user);
+                setAuthToken(session.token);
                 toHub();
               }} 
             />
           </motion.div>
         )}
 
-        {state === 'hub' && (
+        {/* Keep the hub mounted behind games so the study timer and activity tracking keep running. */}
+        {state !== 'login' && currentUser && (
           <motion.div 
             className="w-full flex justify-center"
             key="hub"
@@ -72,9 +67,12 @@ export default function App() {
             exit={{ scale: 0.95, opacity: 0 }}
           >
             <MobileAppLayout 
-              userId={userId}
+              key={currentUser.id}
+              initialUser={currentUser}
+              accessToken={authToken}
               onLogout={() => {
-                setUserId(null);
+                setCurrentUser(null);
+                setAuthToken(null);
                 toLogin();
               }}
               onPlay={startGame}
@@ -82,6 +80,9 @@ export default function App() {
           </motion.div>
         )}
 
+      </AnimatePresence>
+
+      <AnimatePresence>
         {state === 'playing' && activeGame && (
           <motion.div 
             className="w-full flex justify-center absolute inset-0 z-50"

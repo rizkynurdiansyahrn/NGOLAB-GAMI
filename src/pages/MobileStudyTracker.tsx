@@ -1,764 +1,1010 @@
-import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
-  Laptop,
-  Play,
-  Pause,
-  X,
   AlertTriangle,
-  Bell,
-  Clock,
-  RefreshCw,
   BookOpen,
-  Upload,
-  FileText,
+  Check,
+  CheckCircle2,
+  Clock3,
+  Coins,
+  History,
+  ListChecks,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  X,
 } from "lucide-react";
 import { AppUser } from "../data/appData";
+import AIStudyCoach from "../components/AIStudyCoach";
+
+export type TaskStatus = "todo" | "in_progress" | "completed";
+
+export interface Task {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export type StudySessionStatus =
+  | "running"
+  | "paused"
+  | "evaluation"
+  | "completed"
+  | "cancelled";
+
+export interface StudySession {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  durationMinutes: number;
+  remainingSeconds: number;
+  focusedSeconds: number;
+  status: StudySessionStatus;
+  startedAt: string;
+  updatedAt: string;
+  endedAt?: string;
+  outcome?: "completed" | "in_progress";
+  rewardCoins?: number;
+  bonusCoins?: number;
+  rewardStatus?: "credited" | "pending" | "local";
+}
+
+type LegacyStudySession = Omit<StudySession, "status"> & { status: "focus_check" };
 
 interface MobileStudyTrackerProps {
   userId: string | null;
   user: AppUser;
   onRefreshUser?: () => void;
+  isActive?: boolean;
 }
 
-type SessionState = "idle" | "studying" | "finished" | "failed";
-type PetState = "idle" | "studying" | "anxious" | "sleeping" | "happy";
-
-const POMODORO_TIME = 25 * 60; // 25 minutes in seconds
-const CHECK_TIME_LIMIT = 5; // 5 seconds to respond
-const MAX_MATERIAL_SIZE = 20 * 1024 * 1024;
-
-interface StudyMaterial {
-  file: File;
-  url: string;
+interface StudyHistoryItem {
+  id: string;
+  createdAt: string;
+  taskTitle: string;
+  durationMinutes: number;
+  coins: number;
+  outcome?: "completed" | "in_progress";
 }
 
-const petStateTranslation: Record<PetState, string> = {
-  idle: "Santai",
-  studying: "Belajar",
-  anxious: "Cemas",
-  sleeping: "Tidur",
-  happy: "Senang"
-};
+interface StudyRewardBudget {
+  earnedCoins: number;
+  cooldownUntil: string | null;
+}
 
-export default function MobileStudyTracker({ userId, user, onRefreshUser }: MobileStudyTrackerProps) {
-  const [sessionState, setSessionState] = useState<SessionState>("idle");
-  const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
-  const [isActive, setIsActive] = useState(false);
-  const [petState, setPetState] = useState<PetState>("idle");
-  const [history, setHistory] = useState<any[]>([]);
-  const [material, setMaterial] = useState<StudyMaterial | null>(null);
-  const [materialError, setMaterialError] = useState("");
+const DURATIONS = [15, 25, 45, 60] as const;
+const IDLE_PAUSE_MS = 80_000;
+const STUDY_REWARD_CAP = 200;
+const STUDY_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
+const COMPLETED_COINS_PER_MINUTE = 5;
+const IN_PROGRESS_COINS_PER_MINUTE = 3;
+const COMPLETION_BONUS_COINS = 20;
 
-  useEffect(() => {
-    return () => {
-      if (material?.url) URL.revokeObjectURL(material.url);
+function createId(prefix: string): string {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
+}
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Keep the current session usable when browser storage is unavailable.
+  }
+}
+
+function formatTime(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Baru saja"
+    : date.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatRemainingTime(milliseconds: number): string {
+  const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60_000));
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+  return [days > 0 ? `${days} hari` : "", hours > 0 ? `${hours} jam` : "", minutes > 0 ? `${minutes} menit` : ""]
+    .filter(Boolean)
+    .join(" ") || "kurang dari 1 menit";
+}
+
+function normalizeHistory(value: unknown): StudyHistoryItem[] {
+  const records = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && "sessions" in value && Array.isArray(value.sessions)
+      ? value.sessions
+      : [];
+
+  return records.map((entry, index) => {
+    const row = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+    const duration = Number(row.durationMinutes ?? row.duration ?? 0);
+    const coins = Number(row.coins ?? row.points ?? 0);
+    const outcome = row.outcome === "completed" || row.outcome === "in_progress" ? row.outcome : undefined;
+    return {
+      id: String(row.id ?? `remote-${index}`),
+      createdAt: String(row.createdAt ?? row.created_at ?? new Date().toISOString()),
+      taskTitle: String(row.taskTitle ?? row.task_title ?? row.notes ?? "Sesi Gami-Study"),
+      durationMinutes: Number.isFinite(duration) ? duration : 0,
+      coins: Number.isFinite(coins) ? coins : 0,
+      outcome,
     };
-  }, [material]);
+  });
+}
 
-  const fetchStudySessions = async () => {
-    if (!userId) return;
-    try {
-      const response = await fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, { cache: 'no-store' });
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setHistory(data);
-          return;
-        }
-      }
-      throw new Error("Invalid format");
-    } catch (e) {
-      console.warn("Gagal memuat riwayat belajar dari server, menggunakan fallback data lokal:", e);
-      const stored = localStorage.getItem(`study_history_${userId}`);
-      if (stored) {
-        setHistory(JSON.parse(stored));
-      } else {
-        const defaultHistory = [
-          {
-            id: "hist-1",
-            created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-            duration: 25,
-            notes: "Mempelajari fundamental React Hooks dan state management.",
-            points: 150
-          },
-          {
-            id: "hist-2",
-            created_at: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-            duration: 25,
-            notes: "Menyelesaikan styling halaman dashboard menggunakan TailwindCSS.",
-            points: 120
-          }
-        ];
-        setHistory(defaultHistory);
-        localStorage.setItem(`study_history_${userId}`, JSON.stringify(defaultHistory));
-      }
-    }
+function statusLabel(status: TaskStatus): string {
+  if (status === "completed") return "Selesai";
+  if (status === "in_progress") return "Berlangsung";
+  return "Belum dikerjakan";
+}
+
+export default function MobileStudyTracker({ userId, user, onRefreshUser, isActive = true }: MobileStudyTrackerProps) {
+  const storageKey = `gami_study_${userId ?? "guest"}`;
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [session, setSession] = useState<StudySession | null>(null);
+  const [history, setHistory] = useState<StudyHistoryItem[]>([]);
+  const [rewardBudget, setRewardBudget] = useState<StudyRewardBudget>({ earnedCoins: 0, cooldownUntil: null });
+  const [clockNow, setClockNow] = useState(Date.now());
+  const [durationMinutes, setDurationMinutes] = useState<number>(25);
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
+  const [taskError, setTaskError] = useState("");
+  const [sessionNotice, setSessionNotice] = useState("");
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionNote, setSubmissionNote] = useState("");
+  const [hydratedForKey, setHydratedForKey] = useState("");
+
+  const sessionRef = useRef<StudySession | null>(null);
+  const lastTickAtRef = useRef(Date.now());
+  const hiddenAtRef = useRef<number | null>(null);
+  const lastActivityAtRef = useRef(Date.now());
+  const submissionLockRef = useRef(false);
+
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId && task.status !== "completed"),
+    [tasks, selectedTaskId],
+  );
+
+  const isSessionLive = session?.status === "running" || session?.status === "paused";
+  const isRewardBudgetReady = hydratedForKey === storageKey;
+  const cooldownUntilMs = rewardBudget.cooldownUntil ? Date.parse(rewardBudget.cooldownUntil) : null;
+  const isStudyLocked = isRewardBudgetReady && (rewardBudget.earnedCoins >= STUDY_REWARD_CAP || (cooldownUntilMs !== null && cooldownUntilMs > clockNow));
+  const availableStudyCoins = !isRewardBudgetReady || isStudyLocked ? 0 : Math.max(0, STUDY_REWARD_CAP - rewardBudget.earnedCoins);
+  const progressPercent = session
+    ? Math.min(100, Math.max(0, (session.focusedSeconds / (session.durationMinutes * 60)) * 100))
+    : 0;
+
+  const commitSession = (nextSession: StudySession | null) => {
+    sessionRef.current = nextSession;
+    setSession(nextSession);
   };
 
   useEffect(() => {
-    fetchStudySessions();
-  }, [userId]);
+    const savedTasks = readJson<Task[] | null>(`${storageKey}_tasks`, null);
+    const restoredTasks = Array.isArray(savedTasks) ? savedTasks : [];
+    setTasks(restoredTasks);
 
-  // Anti-cheat state
-  const [isCheckActive, setIsCheckActive] = useState(false);
-  const [checkTimeLeft, setCheckTimeLeft] = useState(CHECK_TIME_LIMIT);
-  const lastActivityTimeRef = useRef<number>(Date.now());
+    const savedSelection = readJson<string>(`${storageKey}_selected_task`, "");
+    setSelectedTaskId(restoredTasks.some((task) => task.id === savedSelection && task.status !== "completed")
+      ? savedSelection
+      : restoredTasks.find((task) => task.status !== "completed")?.id ?? "");
 
-  const [summaryNotes, setSummaryNotes] = useState("");
-  const [earnedPoints, setEarnedPoints] = useState(0);
+    const savedDuration = readJson<number>(`${storageKey}_duration`, 25);
+    setDurationMinutes(DURATIONS.includes(savedDuration as (typeof DURATIONS)[number]) ? savedDuration : 25);
 
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-
-  // Format time (MM:SS)
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const handleMaterialSelect = (file?: File) => {
-    setMaterialError("");
-    if (!file) return;
-
-    const allowedExtensions = /\.(pdf|doc|docx|ppt|pptx|jpg|jpeg|png)$/i;
-    if (!allowedExtensions.test(file.name)) {
-      setMaterialError("Format belum didukung. Pilih PDF, Word, PowerPoint, atau gambar.");
-      return;
-    }
-    if (file.size > MAX_MATERIAL_SIZE) {
-      setMaterialError("Ukuran berkas maksimal 20 MB.");
-      return;
+    const restoredSession = readJson<(StudySession | LegacyStudySession) | null>(`${storageKey}_session`, null);
+    if (restoredSession && (restoredSession.status === "running" || restoredSession.status === "focus_check")) {
+      const pausedSession: StudySession = {
+        ...restoredSession,
+        status: "paused",
+        updatedAt: new Date().toISOString(),
+      };
+      sessionRef.current = pausedSession;
+      setSession(pausedSession);
+      setSessionNotice("Sesi sebelumnya dipulihkan dalam keadaan dijeda. Lanjutkan saat kamu siap.");
+    } else {
+      sessionRef.current = restoredSession;
+      setSession(restoredSession);
+      setSessionNotice("");
     }
 
-    setMaterial({ file, url: URL.createObjectURL(file) });
+    const localHistory = readJson<StudyHistoryItem[]>(`${storageKey}_history`, []);
+    setHistory(Array.isArray(localHistory) ? localHistory : []);
+
+    const savedBudget = readJson<Partial<StudyRewardBudget> | null>(`${storageKey}_reward_budget`, null);
+    const earnedCoins = Math.max(0, Number(savedBudget?.earnedCoins) || 0);
+    const parsedCooldown = typeof savedBudget?.cooldownUntil === "string" ? Date.parse(savedBudget.cooldownUntil) : Number.NaN;
+    if (Number.isFinite(parsedCooldown) && parsedCooldown > Date.now()) {
+      setRewardBudget({ earnedCoins: Math.min(STUDY_REWARD_CAP, earnedCoins), cooldownUntil: new Date(parsedCooldown).toISOString() });
+    } else if (Number.isFinite(parsedCooldown) && parsedCooldown <= Date.now()) {
+      setRewardBudget({ earnedCoins: 0, cooldownUntil: null });
+    } else if (earnedCoins >= STUDY_REWARD_CAP) {
+      setRewardBudget({ earnedCoins: STUDY_REWARD_CAP, cooldownUntil: new Date(Date.now() + STUDY_COOLDOWN_MS).toISOString() });
+    } else {
+      setRewardBudget({ earnedCoins, cooldownUntil: null });
+    }
+    setClockNow(Date.now());
+    setHydratedForKey(storageKey);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (hydratedForKey !== storageKey) return;
+    writeJson(`${storageKey}_tasks`, tasks);
+    writeJson(`${storageKey}_selected_task`, selectedTaskId);
+    writeJson(`${storageKey}_duration`, durationMinutes);
+  }, [storageKey, hydratedForKey, tasks, selectedTaskId, durationMinutes]);
+
+  useEffect(() => {
+    if (hydratedForKey !== storageKey) return;
+    writeJson(`${storageKey}_session`, session);
+  }, [storageKey, hydratedForKey, session]);
+
+  useEffect(() => {
+    if (hydratedForKey !== storageKey) return;
+    writeJson(`${storageKey}_history`, history);
+  }, [storageKey, hydratedForKey, history]);
+
+  useEffect(() => {
+    if (hydratedForKey !== storageKey) return;
+    writeJson(`${storageKey}_reward_budget`, rewardBudget);
+  }, [storageKey, hydratedForKey, rewardBudget]);
+
+  useEffect(() => {
+    const budgetKey = `${storageKey}_reward_budget`;
+    const syncBudgetFromAnotherTab = (event: StorageEvent) => {
+      if (event.key !== budgetKey || !event.newValue) return;
+      try {
+        const nextBudget = JSON.parse(event.newValue) as Partial<StudyRewardBudget>;
+        const earnedCoins = Math.max(0, Math.min(STUDY_REWARD_CAP, Number(nextBudget.earnedCoins) || 0));
+        const cooldownUntil = typeof nextBudget.cooldownUntil === "string" ? nextBudget.cooldownUntil : null;
+        setRewardBudget({ earnedCoins, cooldownUntil });
+      } catch {
+        // Ignore malformed values from another tab.
+      }
+    };
+
+    window.addEventListener("storage", syncBudgetFromAnotherTab);
+    return () => window.removeEventListener("storage", syncBudgetFromAnotherTab);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!rewardBudget.cooldownUntil) return;
+    const cooldownUntil = Date.parse(rewardBudget.cooldownUntil);
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= cooldownUntil) setRewardBudget({ earnedCoins: 0, cooldownUntil: null });
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [rewardBudget.cooldownUntil]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let isCurrent = true;
+
+    fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Study history request failed: ${response.status}`);
+        return normalizeHistory(await response.json());
+      })
+      .then((remoteHistory) => {
+        if (!isCurrent) return;
+        setHistory(remoteHistory);
+        writeJson(`${storageKey}_history`, remoteHistory);
+      })
+      .catch(() => {
+        // Local history remains available when the study API is offline.
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [storageKey, userId]);
+
+  useEffect(() => {
+    if (session?.status !== "running") return;
+    lastTickAtRef.current = Date.now();
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      const current = sessionRef.current;
+      if (!current || current.status !== "running") return;
+
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - lastTickAtRef.current) / 1000);
+      if (elapsedSeconds < 1) return;
+      lastTickAtRef.current += elapsedSeconds * 1000;
+      const focusedSeconds = Math.min(elapsedSeconds, current.remainingSeconds);
+      const remainingSeconds = Math.max(0, current.remainingSeconds - focusedSeconds);
+
+      if (remainingSeconds === 0) {
+        commitSession({
+          ...current,
+          remainingSeconds: 0,
+          focusedSeconds: current.focusedSeconds + focusedSeconds,
+          status: "evaluation",
+          endedAt: new Date(now).toISOString(),
+          updatedAt: new Date(now).toISOString(),
+        });
+        return;
+      }
+
+      commitSession({
+        ...current,
+        remainingSeconds,
+        focusedSeconds: current.focusedSeconds + focusedSeconds,
+        updatedAt: new Date(now).toISOString(),
+      });
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [session?.status]);
+
+  useEffect(() => {
+    if (session?.status !== "running") return;
+
+    lastActivityAtRef.current = Date.now();
+
+    const markActivity = () => {
+      // Browser APIs cannot observe activity in another browser tab. Start a fresh
+      // idle window when this tab becomes visible again instead of pausing on return.
+      if (document.visibilityState === "visible") lastActivityAtRef.current = Date.now();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") lastActivityAtRef.current = Date.now();
+    };
+
+    const activityEvents = [
+      "pointermove", "pointerdown", "pointerup", "mousemove", "mousedown",
+      "touchstart", "touchmove", "keydown", "keyup", "wheel", "scroll",
+      "click", "input", "change", "focusin", "submit",
+    ] as const;
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, markActivity, { capture: true, passive: true }));
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const idleIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        lastActivityAtRef.current = Date.now();
+        return;
+      }
+
+      const current = sessionRef.current;
+      if (!current || current.status !== "running") return;
+      if (Date.now() - lastActivityAtRef.current < IDLE_PAUSE_MS) return;
+
+      commitSession({ ...current, status: "paused", updatedAt: new Date().toISOString() });
+      setSessionNotice("Tidak ada aktivitas selama 1 menit 20 detik. Sesi dijeda otomatis; lanjutkan kembali saat siap.");
+    }, 500);
+
+    return () => {
+      window.clearInterval(idleIntervalId);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, markActivity, true));
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [session?.status]);
+
+  useEffect(() => {
+    const recordAwayTime = () => {
+      if (hiddenAtRef.current !== null) return;
+      hiddenAtRef.current = Date.now();
+    };
+
+    const resumeFromAwayTime = () => {
+      if (hiddenAtRef.current === null) return;
+      hiddenAtRef.current = null;
+      const current = sessionRef.current;
+      const now = Date.now();
+      if (current?.status === "running") {
+        const elapsedSeconds = Math.max(0, Math.floor((now - lastTickAtRef.current) / 1000));
+        if (elapsedSeconds > 0) {
+          const focusedSeconds = Math.min(elapsedSeconds, current.remainingSeconds);
+          const remainingSeconds = Math.max(0, current.remainingSeconds - focusedSeconds);
+          if (remainingSeconds === 0) {
+            commitSession({
+              ...current,
+              remainingSeconds: 0,
+              focusedSeconds: current.focusedSeconds + focusedSeconds,
+              status: "evaluation",
+              endedAt: new Date(now).toISOString(),
+              updatedAt: new Date(now).toISOString(),
+            });
+          } else {
+            commitSession({
+              ...current,
+              remainingSeconds,
+              focusedSeconds: current.focusedSeconds + focusedSeconds,
+              updatedAt: new Date(now).toISOString(),
+            });
+          }
+          lastTickAtRef.current += elapsedSeconds * 1000;
+        }
+      } else {
+        lastTickAtRef.current = now;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") recordAwayTime();
+      else resumeFromAwayTime();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", recordAwayTime);
+    window.addEventListener("pageshow", resumeFromAwayTime);
+    if (!isActive || document.visibilityState === "hidden") recordAwayTime();
+    else resumeFromAwayTime();
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", recordAwayTime);
+      window.removeEventListener("pageshow", resumeFromAwayTime);
+    };
+  }, [isActive]);
+
+  const addQuickTask = () => {
+    const title = quickTaskTitle.trim();
+    if (!title) {
+      setTaskError("Tulis nama tugas sebelum menambahkannya.");
+      return;
+    }
+
+    const task: Task = {
+      id: createId("task"),
+      title: title.slice(0, 80),
+      status: "todo",
+      createdAt: new Date().toISOString(),
+    };
+    setTasks((currentTasks) => [task, ...currentTasks]);
+    setSelectedTaskId(task.id);
+    setQuickTaskTitle("");
+    setTaskError("");
   };
 
   const startSession = () => {
-    if (!material) {
-      setMaterialError("Unggah materi belajar terlebih dahulu untuk memulai sesi.");
+    if (!isRewardBudgetReady) {
+      setTaskError("Sedang memuat limit reward. Coba mulai lagi sebentar.");
       return;
     }
-    setSessionState("studying");
-    setTimeLeft(POMODORO_TIME);
-    setIsActive(true);
-    setPetState("studying");
-    lastActivityTimeRef.current = Date.now();
+    if (isStudyLocked) {
+      setTaskError("Batas koin Gami-Study tercapai. Coba lagi setelah masa limit berakhir.");
+      return;
+    }
+    if (!selectedTask) {
+      setTaskError("Pilih atau buat tugas terlebih dahulu untuk memulai sesi.");
+      return;
+    }
+
+    const now = new Date();
+    const nextSession: StudySession = {
+      id: createId("study"),
+      taskId: selectedTask.id,
+      taskTitle: selectedTask.title,
+      durationMinutes,
+      remainingSeconds: durationMinutes * 60,
+      focusedSeconds: 0,
+      status: "running",
+      startedAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+    setTasks((currentTasks) => currentTasks.map((task) =>
+      task.id === selectedTask.id ? { ...task, status: "in_progress" } : task,
+    ));
+    setSessionNotice("");
+    setSubmissionNote("");
+    setShowCancelConfirm(false);
+    lastTickAtRef.current = Date.now();
+    commitSession(nextSession);
   };
 
-  // Activity tracking for AFK
-  useEffect(() => {
-    const handleActivity = () => {
-      lastActivityTimeRef.current = Date.now();
-    };
-
-    window.addEventListener("mousemove", handleActivity);
-    window.addEventListener("keydown", handleActivity);
-    window.addEventListener("touchstart", handleActivity);
-    window.addEventListener("touchmove", handleActivity);
-    window.addEventListener("click", handleActivity);
-
-    return () => {
-      window.removeEventListener("mousemove", handleActivity);
-      window.removeEventListener("keydown", handleActivity);
-      window.removeEventListener("touchstart", handleActivity);
-      window.removeEventListener("touchmove", handleActivity);
-      window.removeEventListener("click", handleActivity);
-    };
-  }, []);
-
-  const failSession = () => {
-    setIsActive(false);
-    setIsCheckActive(false);
-    setSessionState("idle");
-    setPetState("idle");
-    setTimeLeft(POMODORO_TIME);
-    setSummaryNotes("");
-    setEarnedPoints(0);
-    setMaterial(null);
+  const pauseSession = () => {
+    const current = sessionRef.current;
+    if (!current || current.status !== "running") return;
+    commitSession({ ...current, status: "paused", updatedAt: new Date().toISOString() });
+    setSessionNotice("Sesi dijeda. Kamu bisa melanjutkannya kapan saja.");
   };
 
-  const finishSession = async () => {
-    setIsActive(false);
-    setIsCheckActive(false);
+  const resumeSession = () => {
+    const current = sessionRef.current;
+    if (!current || current.status !== "paused") return;
+    lastTickAtRef.current = Date.now();
+    commitSession({ ...current, status: "running", updatedAt: new Date().toISOString() });
+    setSessionNotice("");
+  };
 
-    // Calculate points based on summary length
-    const words = summaryNotes
-      .trim()
-      .split(/\s+/)
-      .filter((w) => w.length > 0).length;
-    // Base 50 points + 5 points per word, max 300 points
-    const calculatedPoints = 50 + Math.min(words * 5, 250);
-    setEarnedPoints(calculatedPoints);
+  const cancelSession = () => {
+    const current = sessionRef.current;
+    if (!current) return;
+    commitSession({ ...current, status: "cancelled", updatedAt: new Date().toISOString() });
+    setShowCancelConfirm(false);
+    setSessionNotice("");
+  };
 
-    setSessionState("finished");
-    setPetState("happy");
+  const finishSession = async (taskCompleted: boolean) => {
+    const current = sessionRef.current;
+    if (!current || current.status !== "evaluation" || submissionLockRef.current) return;
+    submissionLockRef.current = true;
+    setIsSubmitting(true);
+    setSubmissionNote("");
 
+    const focusedMinutes = current.focusedSeconds / 60;
+    const requestedBaseCoins = taskCompleted
+      ? Math.floor(focusedMinutes * COMPLETED_COINS_PER_MINUTE)
+      : Math.floor(focusedMinutes * IN_PROGRESS_COINS_PER_MINUTE);
+    const requestedBonusCoins = taskCompleted ? COMPLETION_BONUS_COINS : 0;
+    const requestedCoins = requestedBaseCoins + requestedBonusCoins;
+    const nowMs = Date.now();
+    const activeCooldownUntil = rewardBudget.cooldownUntil && Date.parse(rewardBudget.cooldownUntil) > nowMs
+      ? rewardBudget.cooldownUntil
+      : null;
+    const cooldownExpired = Boolean(rewardBudget.cooldownUntil && Date.parse(rewardBudget.cooldownUntil) <= nowMs);
+    const budgetEarnedBeforeSession = activeCooldownUntil
+      ? STUDY_REWARD_CAP
+      : cooldownExpired ? 0 : rewardBudget.earnedCoins;
+    const coinsLeftBeforeSession = activeCooldownUntil
+      ? 0
+      : Math.max(0, STUDY_REWARD_CAP - budgetEarnedBeforeSession);
+    const earnedCoins = Math.min(requestedCoins, coinsLeftBeforeSession);
+    const nextBudgetEarned = Math.min(STUDY_REWARD_CAP, budgetEarnedBeforeSession + earnedCoins);
+    const cooldownUntil = activeCooldownUntil ?? (nextBudgetEarned >= STUDY_REWARD_CAP
+      ? new Date(nowMs + STUDY_COOLDOWN_MS).toISOString()
+      : null);
+    const nextRewardBudget: StudyRewardBudget = {
+      earnedCoins: nextBudgetEarned,
+      cooldownUntil,
+    };
+    setRewardBudget(nextRewardBudget);
+    const capNote = earnedCoins < requestedCoins
+      ? `Batas ${STUDY_REWARD_CAP} koin tercapai; reward sesi ini dibatasi menjadi ${earnedCoins} koin.`
+      : "";
+
+    const awardedBonusCoins = Math.min(requestedBonusCoins, Math.max(0, earnedCoins - requestedBaseCoins));
+    const now = new Date().toISOString();
+    const outcome = taskCompleted ? "completed" : "in_progress";
+    const updatedTaskStatus: TaskStatus = taskCompleted ? "completed" : "in_progress";
+    const historyItem: StudyHistoryItem = {
+      id: current.id,
+      createdAt: now,
+      taskTitle: current.taskTitle,
+      durationMinutes: Math.round(current.focusedSeconds / 60),
+      coins: earnedCoins,
+      outcome,
+    };
+
+    setTasks((currentTasks) => currentTasks.map((task) => task.id === current.taskId
+      ? { ...task, status: updatedTaskStatus, ...(taskCompleted ? { completedAt: now } : {}) }
+      : task,
+    ));
+    const updatedHistory = [historyItem, ...history.filter((item) => item.id !== current.id)].slice(0, 50);
+    setHistory(updatedHistory);
+    writeJson(`${storageKey}_history`, updatedHistory);
+
+    let rewardStatus: StudySession["rewardStatus"] = userId && earnedCoins === 0 ? "credited" : "local";
+    let remoteSessionSaved = false;
     if (userId) {
       try {
-        // 1. Post to study-sessions
-        await fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, {
+        const sessionResponse = await fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            notes: [summaryNotes || "Fokus Belajar Pomodoro", `Materi: ${material?.file.name ?? "Tidak dilampirkan"}`].join("\n"),
-            material_name: material?.file.name,
-            duration: 25,
-            points: calculatedPoints,
-            coins: calculatedPoints
-          })
+            task_id: current.taskId,
+            task_title: current.taskTitle,
+            task_status: updatedTaskStatus,
+            outcome,
+            duration: historyItem.durationMinutes,
+            planned_duration: current.durationMinutes,
+            focused_seconds: current.focusedSeconds,
+            notes: `Gami-Study: ${current.taskTitle}`,
+            points: earnedCoins,
+            coins: earnedCoins,
+            session_id: current.id,
+            study_reward_cap: STUDY_REWARD_CAP,
+            study_reward_period_days: 3,
+            study_reward_total: nextRewardBudget.earnedCoins,
+            study_reward_cooldown_until: nextRewardBudget.cooldownUntil,
+          }),
         });
-
-        // 2. Add coins to user balance
-        await fetch(`https://geasture.kolab.top/api/users/${userId}/earn-coins`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            amount: calculatedPoints,
-            description: "Menang Sesi Belajar Gami-Study"
-          })
-        });
-
-        if (onRefreshUser) onRefreshUser();
-        fetchStudySessions();
-      } catch (err) {
-        console.error("Gagal mengirim sesi belajar atau menambahkan koin ke server:", err);
-        const newSession = {
-          id: "hist-mock-" + Date.now(),
-          created_at: new Date().toISOString(),
-          duration: 25,
-          notes: summaryNotes || "Fokus Belajar Pomodoro",
-          material_name: material?.file.name,
-          points: calculatedPoints
-        };
-        const updatedHistory = [newSession, ...history];
-        setHistory(updatedHistory);
-        localStorage.setItem(`study_history_${userId}`, JSON.stringify(updatedHistory));
-        if (onRefreshUser) onRefreshUser();
+        remoteSessionSaved = sessionResponse.ok;
+      } catch {
+        remoteSessionSaved = false;
       }
-    }
-  };
 
-  // Main Timer Effect
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
+      if (earnedCoins > 0) {
+        try {
+          const rewardResponse = await fetch(`https://geasture.kolab.top/api/users/${userId}/earn-coins`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: earnedCoins,
+              description: taskCompleted
+                ? `Gami-Study: tugas selesai — ${current.taskTitle}`
+                : `Gami-Study: sesi fokus — ${current.taskTitle}`,
+              session_id: current.id,
+              study_reward_cap: STUDY_REWARD_CAP,
+              study_reward_period_days: 3,
+              study_reward_total: nextRewardBudget.earnedCoins,
+              study_reward_cooldown_until: nextRewardBudget.cooldownUntil,
+            }),
+          });
+          rewardStatus = rewardResponse.ok ? "credited" : "pending";
+        } catch {
+          rewardStatus = "pending";
+        }
+      }
 
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          const newTime = prev - 1;
-
-          // Trigger AFK alarm if inactive for 1 minute
-          if (!isCheckActive && sessionState === "studying") {
-            const idleTime = Date.now() - lastActivityTimeRef.current;
-            if (idleTime >= 60000) {
-              setIsCheckActive(true);
-              setCheckTimeLeft(CHECK_TIME_LIMIT);
-              setPetState("anxious");
-              // Play notification sound
-              try {
-                const audio = new Audio(
-                  "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
-                );
-                audio.play();
-              } catch (e) {}
-            }
-          }
-
-          if (newTime <= 0) {
-            finishSession();
-            return 0;
-          }
-          return newTime;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive, timeLeft, isCheckActive, sessionState]);
-
-  // Random Check Timer Effect
-  useEffect(() => {
-    let checkInterval: ReturnType<typeof setInterval> | null = null;
-
-    if (isCheckActive && checkTimeLeft > 0) {
-      checkInterval = setInterval(() => {
-        setCheckTimeLeft((prev) => {
-          const newTime = prev - 1;
-          if (newTime <= 0) {
-            failSession();
-            return 0;
-          }
-          return newTime;
-        });
-      }, 1000);
+      if (rewardStatus === "credited" && earnedCoins > 0) onRefreshUser?.();
+      if (rewardStatus === "pending") {
+        setSubmissionNote([capNote, "Sesi tersimpan di perangkat, tetapi koin belum terkonfirmasi oleh server."].filter(Boolean).join(" "));
+      } else if (!remoteSessionSaved) {
+        const syncNote = earnedCoins > 0
+          ? "Koin berhasil dikirim. Riwayat sesi tersimpan di perangkat karena server riwayat sedang tidak tersedia."
+          : "Riwayat sesi tersimpan di perangkat karena server sedang tidak tersedia.";
+        setSubmissionNote([capNote, syncNote].filter(Boolean).join(" "));
+      } else {
+        setSubmissionNote(capNote);
+      }
+    } else {
+      setSubmissionNote(capNote);
     }
 
-    return () => {
-      if (checkInterval) clearInterval(checkInterval);
-    };
-  }, [isCheckActive, checkTimeLeft]);
-
-  const handleImStillWorking = () => {
-    setIsCheckActive(false);
-    setPetState("studying");
-    lastActivityTimeRef.current = Date.now();
+    commitSession({
+      ...current,
+      status: "completed",
+      outcome,
+      rewardCoins: earnedCoins,
+      bonusCoins: awardedBonusCoins,
+      rewardStatus,
+      endedAt: current.endedAt ?? now,
+      updatedAt: now,
+    });
+    setIsSubmitting(false);
+    submissionLockRef.current = false;
   };
 
-  // --- Rendering Helpers ---
-
-  const renderPet = () => {
-    const petVariants = {
-      idle: { y: [0, -5, 0], transition: { repeat: Infinity, duration: 2 } },
-      studying: {
-        y: [0, -2, 0],
-        scale: [1, 1.05, 1],
-        transition: { repeat: Infinity, duration: 1 },
-      },
-      anxious: {
-        x: [-5, 5, -5, 5, 0],
-        transition: { repeat: Infinity, duration: 0.5 },
-      },
-      sleeping: { opacity: 0.7, scale: 0.95 },
-      happy: {
-        y: [0, -20, 0],
-        rotate: [0, 10, -10, 0],
-        transition: { repeat: Infinity, duration: 1.5 },
-      },
-    };
-
-    const petFace = {
-      idle: "₍^. .^₎",
-      studying: "₍^•ﻌ•^₎✍",
-      anxious: "₍^;﹏;^₎",
-      sleeping: "₍^ - -^₎zZ",
-      happy: "₍^>ヮ<^₎🎉",
-    };
-
-    return (
-      <motion.div
-        variants={petVariants}
-        animate={petState}
-        className="w-40 h-40 bg-white border-4 border-gray-100 rounded-full flex flex-col items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] mb-6 mx-auto"
-      >
-        <span className="text-4xl text-[#FF6B00] mb-2">
-          {petFace[petState]}
-        </span>
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-          {petStateTranslation[petState]}
-        </span>
-      </motion.div>
-    );
+  const startNewSession = () => {
+    commitSession(null);
+    setSessionNotice("");
+    setSubmissionNote("");
+    setTaskError("");
+    const stillAvailableTask = tasks.find((task) => task.id === selectedTaskId && task.status !== "completed");
+    if (!stillAvailableTask) setSelectedTaskId(tasks.find((task) => task.status !== "completed")?.id ?? "");
   };
+
+  const estimatedFullReward = Math.min(availableStudyCoins, durationMinutes * COMPLETED_COINS_PER_MINUTE + COMPLETION_BONUS_COINS);
+  const estimatedProgressReward = Math.min(availableStudyCoins, durationMinutes * IN_PROGRESS_COINS_PER_MINUTE);
+  const sessionCompleteReward = session
+    ? Math.min(availableStudyCoins, Math.floor((session.focusedSeconds / 60) * COMPLETED_COINS_PER_MINUTE) + COMPLETION_BONUS_COINS)
+    : 0;
+  const sessionProgressReward = session
+    ? Math.min(availableStudyCoins, Math.floor((session.focusedSeconds / 60) * IN_PROGRESS_COINS_PER_MINUTE))
+    : 0;
 
   return (
-    <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar p-6 pt-10 font-sans pb-32 bg-[#FAF9F6] min-h-full">
-      {/* Background Decor */}
-      <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-[#FF6B00]/10 rounded-full blur-[80px] pointer-events-none" />
-
-      {/* Header */}
-      <div className="mb-8 relative z-10">
-        <h2 className="text-3xl font-extrabold tracking-tight text-[#1A1A1A] mb-1">
-          Gami-Study
-        </h2>
-        <p className="text-[#1A1A1A]/60 text-sm font-semibold tracking-wide">
-          Tetap Fokus, Dapatkan Poin
-        </p>
+    <main className="relative mx-auto min-h-full w-full max-w-5xl overflow-hidden px-4 pb-32 pt-6 font-sans sm:px-6 sm:pt-8">
+      <div className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-orange-200/40 blur-3xl" />
+      <div className="relative z-10 mb-6 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#FF5500]">Task-linked pomodoro</p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900">Gami-Study</h1>
+          <p className="mt-1 max-w-xl text-sm text-slate-500">Hubungkan sesi fokus dengan tugas, lalu kumpulkan koin dari waktu belajarmu.</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-orange-100 bg-white px-3 py-2 shadow-sm">
+          <Coins className="h-4 w-4 text-[#FF5500]" />
+          <span className="text-sm font-extrabold text-slate-800">{user.points.toLocaleString()}</span>
+          <span className="hidden text-xs font-semibold text-slate-400 sm:inline">koin</span>
+        </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        {sessionState === "idle" && (
-          <motion.div
-            key="idle"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="flex flex-col gap-6 max-w-lg mx-auto"
-          >
-            <div className="bg-white rounded-[32px] p-6 shadow-[0_10px_30px_rgba(0,0,0,0.03)] border border-gray-100 flex flex-col items-center text-center relative overflow-hidden group">
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-100 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-colors" />
-              <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                <Laptop className="w-8 h-8" />
-              </div>
-              <h3 className="font-extrabold text-xl text-[#1A1A1A] mb-2">
-                Sesi Fokus 25 Menit
-              </h3>
-              <p className="text-[#1A1A1A]/70 text-sm font-medium mb-8 leading-relaxed max-w-xs">
-                Unggah materi yang akan dipelajari, lalu mulai sesi fokus 25 menit.
-                Pastikan merespons Random Focus Check!
-              </p>
+      <AIStudyCoach
+        taskTitle={session?.taskTitle ?? selectedTask?.title}
+        durationMinutes={session?.durationMinutes ?? durationMinutes}
+        conversationKey={`${userId ?? "guest"}:${session?.taskId ?? selectedTaskId ?? "none"}`}
+      />
 
-              <label htmlFor="study-material" className="mb-3 flex w-full cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/60 px-4 py-5 transition hover:border-[#FF6B00] hover:bg-orange-50">
-                <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#FF6B00] shadow-sm"><Upload className="h-5 w-5" /></span>
-                <span className="text-sm font-extrabold text-slate-800">{material ? "Ganti materi belajar" : "Pilih file materi"}</span>
-                <span className="mt-1 text-[11px] text-slate-500">PDF, Word, PowerPoint, atau gambar · Maks. 20 MB</span>
-                <input
-                  id="study-material"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                  className="sr-only"
-                  onChange={(event) => {
-                    handleMaterialSelect(event.target.files?.[0]);
-                    event.currentTarget.value = "";
-                  }}
-                />
-              </label>
-              {material && (
-                <div className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#FF6B00]"><FileText className="h-5 w-5" /></span>
-                  <a href={material.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700 hover:text-[#FF6B00]" title={material.file.name}>{material.file.name}</a>
-                  <button type="button" onClick={() => setMaterial(null)} aria-label="Hapus materi" className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-red-500"><X className="h-4 w-4" /></button>
-                </div>
-              )}
-              {material?.file.name.toLowerCase().endsWith(".pdf") && (
-                <PdfReader material={material} />
-              )}
-              {materialError && <p role="alert" className="mb-4 w-full text-left text-xs font-semibold text-red-600">{materialError}</p>}
-
-              {renderPet()}
-
-              <button
-                onClick={startSession}
-                disabled={!material}
-                className="w-full h-16 rounded-2xl bg-[#FF6B00] text-black font-extrabold text-lg uppercase tracking-wider shadow-[0_4px_20px_rgba(255,107,0,0.4)] hover:shadow-[0_4px_30px_rgba(255,107,0,0.6)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
-              >
-                <Play className="w-6 h-6 fill-current" /> Mulai Belajar!
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {(sessionState === "studying" ||
-          sessionState === "finished" ||
-          sessionState === "failed") && (
-          <motion.div
-            key="studying"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center relative z-10 max-w-lg mx-auto"
-          >
-            <div className="bg-white/80 backdrop-blur-md px-6 py-2 rounded-full border border-gray-200 shadow-sm mb-8 flex items-center gap-2">
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
-              />
-              <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-widest">
-                Sesi Berjalan bebas AFK Check
-              </span>
-            </div>
-
-            {renderPet()}
-
-            <div className="bg-white backdrop-blur-xl border border-gray-200 rounded-[40px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] w-full text-center relative overflow-hidden">
-              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-100">
-                <motion.div
-                  className="h-full bg-[#FF6B00]"
-                  initial={{ width: "100%" }}
-                  animate={{ width: `${(timeLeft / POMODORO_TIME) * 100}%` }}
-                  transition={{ duration: 1 }}
-                />
-              </div>
-
-              <h1 className="text-6xl font-black text-[#1A1A1A] tracking-tighter mb-2 font-mono">
-                {formatTime(timeLeft)}
-              </h1>
-              <p className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-6">
-                Tersisa
-              </p>
-
-              {sessionState === "finished" && (
-                <div className="bg-green-50 text-green-600 rounded-xl p-4 mb-6 text-sm font-bold flex items-center justify-center gap-2">
-                  Selesai! +{earnedPoints} Gami Poin
-                </div>
-              )}
-
-              {sessionState === "failed" && (
-                <div className="bg-red-50 text-red-600 rounded-xl p-4 mb-6 text-sm font-bold flex items-center justify-center gap-2">
-                  <X className="w-5 h-5" /> Gagal. Jangan Lupa Kembali!
-                </div>
-              )}
-
-              {material && (
-                <a href={material.url} target="_blank" rel="noreferrer" className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3 text-left hover:border-orange-200">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#FF6B00]"><FileText className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1"><span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Materi sesi ini</span><span className="block truncate text-xs font-bold text-slate-700">{material.file.name}</span></span>
-                  <span className="text-[10px] font-bold text-[#FF6B00]">Buka</span>
-                </a>
-              )}
-              {material?.file.name.toLowerCase().endsWith(".pdf") && (
-                <PdfReader material={material} />
-              )}
-
-              {(sessionState === "studying" || sessionState === "finished") && (
-                <div className="mb-6 w-full text-left">
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">
-                    Catatan / Rangkuman Belajar
-                  </label>
-                  <textarea
-                    readOnly={sessionState === "finished"}
-                    value={summaryNotes}
-                    onChange={(e) => setSummaryNotes(e.target.value)}
-                    placeholder={
-                      sessionState === "studying"
-                        ? "Makin bagus dan lengkap rangkumanmu, makin tinggi poin yang ditambahkan saat selesai lho!"
-                        : "Kamu tidak menulis rangkuman apapun."
-                    }
-                    className="w-full h-32 bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:outline-none focus:border-[#FF6B00] transition-colors resize-none custom-scrollbar"
-                  />
-                  {sessionState === "studying" && (
-                    <p className="text-[10px] text-gray-400 font-bold px-2 mt-2 text-right">
-                      {
-                        summaryNotes
-                          .trim()
-                          .split(/\s+/)
-                          .filter((w) => w.length > 0).length
-                      }{" "}
-                      Kata
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-center gap-4 relative z-50">
-                {sessionState === "studying" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setIsActive(!isActive)}
-                      aria-label={isActive ? "Pause study session" : "Resume study session"}
-                      title={isActive ? "Pause study session" : "Resume study session"}
-                      className="w-14 h-14 rounded-full bg-gray-100 text-[#1A1A1A] flex items-center justify-center hover:bg-gray-200 transition-colors shadow-sm"
-                    >
-                      {isActive ? (
-                        <Pause className="w-6 h-6 fill-current" />
-                      ) : (
-                        <Play className="w-6 h-6 fill-current" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowCancelConfirm(true)}
-                      aria-label="Cancel study session"
-                      title="Cancel study session"
-                      className="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors shadow-sm"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </>
-                )}
-                {(sessionState === "finished" || sessionState === "failed") && (
-                  <button
-                    onClick={() => {
-                      setSessionState("idle");
-                      setPetState("idle");
-                      setTimeLeft(POMODORO_TIME);
-                      setSummaryNotes("");
-                      setEarnedPoints(0);
-                      setMaterial(null);
-                    }}
-                    className="flex-1 bg-[#1A1A1A] text-white h-14 rounded-2xl font-bold uppercase tracking-widest hover:bg-gray-800 transition shadow-[0_10px_20px_rgba(0,0,0,0.1)] flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className="w-5 h-5" /> Mulai Baru
-                  </button>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Riwayat Sesi Belajar */}
-      {sessionState === "idle" && (
-        <div className="max-w-lg mx-auto mt-12 border-t border-gray-200 pt-8 relative z-10">
-          <div className="flex items-center gap-2 mb-6">
-            <BookOpen className="w-6 h-6 text-[#FF6B00]" />
-            <h3 className="text-xl font-extrabold text-[#1A1A1A] tracking-tight">
-              Riwayat Sesi Belajar
-            </h3>
-          </div>
-          
-          {history.length === 0 ? (
-            <div className="bg-white rounded-2xl p-6 text-center text-gray-400 font-medium border border-gray-100 shadow-sm">
-              Belum ada riwayat belajar. Mulai sesi pertamamu untuk mengumpulkan koin!
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {history.map((h, index) => (
-                <motion.div
-                  key={h.id || index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between"
-                >
-                  <div className="flex justify-between items-start gap-2 mb-3">
-                    <div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        {h.created_at ? new Date(h.created_at).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        }) : "Sesi Belajar"}
-                      </span>
-                      <h4 className="font-bold text-sm text-[#1A1A1A] mt-0.5">
-                        Fokus {h.duration ?? 25} Menit
-                      </h4>
-                    </div>
-                    <span className="bg-[#FF6B00]/10 border border-[#FF6B00]/20 text-[#FF6B00] text-xs font-black px-2.5 py-1 rounded-xl shrink-0">
-                      +{h.points ?? h.coins ?? 100} PT
-                    </span>
-                  </div>
-                  {h.notes && (
-                    <p className="text-xs text-gray-500 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
-                      {h.notes}
-                    </p>
-                  )}
-                  {h.material_name && (
-                    <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                      <FileText className="h-4 w-4 shrink-0 text-[#FF6B00]" />
-                      <span className="truncate">Materi: {h.material_name}</span>
-                    </p>
-                  )}
-                </motion.div>
-              ))}
+      {!isSessionLive && session?.status !== "evaluation" && session?.status !== "completed" && isStudyLocked && (
+        <section className="relative z-10 mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600"><Coins className="h-7 w-7" /></span>
+          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-amber-700">Limit reward tercapai</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-900">Gami-Study dijeda sementara</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">Kamu sudah mencapai batas {STUDY_REWARD_CAP} koin Gami-Study. Akses akan terbuka lagi setelah cooldown 3 hari.</p>
+          {cooldownUntilMs !== null && cooldownUntilMs > clockNow && (
+            <div className="mt-5 rounded-2xl bg-amber-50 px-4 py-3">
+              <p className="text-sm font-extrabold text-amber-800">Sisa waktu: {formatRemainingTime(cooldownUntilMs - clockNow)}</p>
+              <p className="mt-1 text-[11px] font-semibold text-amber-700">Bisa digunakan lagi {formatDate(new Date(cooldownUntilMs).toISOString())}</p>
             </div>
           )}
-        </div>
+          <p className="mt-4 text-xs font-semibold text-slate-500">Limit koin akan diatur ulang saat cooldown selesai.</p>
+        </section>
       )}
 
-      {/* Cancel Confirmation Modal */}
+      {!isSessionLive && session?.status !== "evaluation" && session?.status !== "completed" && !isStudyLocked && (
+        <section className="relative z-10 grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.8fr)]">
+          <div className="space-y-5">
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><ListChecks className="h-5 w-5" /></span>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">Pilih tugas belajar</h2>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-500">Pilih satu tugas yang ingin kamu kerjakan. Tugas wajib dipilih sebelum sesi dimulai.</p>
+                </div>
+              </div>
+
+              {tasks.length > 0 ? (
+                <div className="space-y-2">
+                  {tasks.map((task) => {
+                    const isSelected = selectedTaskId === task.id;
+                    const isCompleted = task.status === "completed";
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        disabled={isCompleted}
+                        onClick={() => { setSelectedTaskId(task.id); setTaskError(""); }}
+                        aria-pressed={isSelected}
+                        className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${isCompleted ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : isSelected ? "border-orange-300 bg-orange-50/70 ring-2 ring-orange-100" : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"}`}
+                      >
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-50 text-emerald-600" : isSelected ? "bg-[#FF5500] text-white" : "bg-slate-100 text-slate-500"}`}>
+                          {isCompleted ? <Check className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-extrabold text-slate-800">{task.title}</span>
+                          <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">{statusLabel(task.status)}</span>
+                        </span>
+                        {isSelected && !isCompleted && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#FF5500]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center">
+                  <BookOpen className="mx-auto h-6 w-6 text-slate-400" />
+                  <p className="mt-2 text-sm font-bold text-slate-700">Belum ada tugas</p>
+                  <p className="mt-1 text-xs text-slate-500">Buat quick task di bawah untuk mengatur sesi pertamamu.</p>
+                </div>
+              )}
+
+              <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                <label htmlFor="quick-task-title" className="mb-2 block text-xs font-extrabold text-slate-700">Buat quick task</label>
+                <div className="flex gap-2">
+                  <input
+                    id="quick-task-title"
+                    type="text"
+                    maxLength={80}
+                    value={quickTaskTitle}
+                    onChange={(event) => { setQuickTaskTitle(event.target.value); setTaskError(""); }}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addQuickTask(); } }}
+                    placeholder="Contoh: Baca bab 3 Biologi"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                  />
+                  <button type="button" onClick={addQuickTask} aria-label="Tambah quick task" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {taskError && <p role="alert" className="mt-3 text-xs font-semibold text-red-600">{taskError}</p>}
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Timer className="h-5 w-5" /></span>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">Atur durasi fokus</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">Pilih durasi Pomodoro untuk tugas ini.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {DURATIONS.map((duration) => (
+                  <button
+                    key={duration}
+                    type="button"
+                    onClick={() => setDurationMinutes(duration)}
+                    aria-pressed={durationMinutes === duration}
+                    className={`rounded-2xl border px-3 py-3 text-center transition ${durationMinutes === duration ? "border-[#FF5500] bg-orange-50 text-[#FF5500] ring-2 ring-orange-100" : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"}`}
+                  >
+                    <span className="block text-lg font-black">{duration}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">menit</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+                <div className="rounded-xl bg-orange-50 px-3 py-2.5 text-orange-800"><span className="block font-extrabold">Selesai</span><span>{estimatedFullReward} koin termasuk bonus</span></div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-slate-600"><span className="block font-extrabold">Belum selesai</span><span>{estimatedProgressReward} koin proporsional</span></div>
+              </div>
+              <p className="mt-3 text-[10px] leading-relaxed text-slate-400">Perkiraan berdasarkan {COMPLETED_COINS_PER_MINUTE} koin per menit + bonus {COMPLETION_BONUS_COINS} saat tugas selesai. Tugas berjalan mendapat {IN_PROGRESS_COINS_PER_MINUTE} koin per menit fokus.</p>
+            </section>
+
+              <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-xs font-semibold text-slate-600">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 font-extrabold text-slate-800"><Coins className="h-4 w-4 text-[#FF5500]" /> Limit reward 3 hari</span>
+                  <span>{rewardBudget.earnedCoins} / {STUDY_REWARD_CAP} koin</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                  <div className="h-full rounded-full bg-[#FF5500] transition-[width]" style={{ width: `${Math.min(100, (rewardBudget.earnedCoins / STUDY_REWARD_CAP) * 100)}%` }} />
+                </div>
+              </div>
+
+              <button
+              type="button"
+              onClick={startSession}
+              disabled={!selectedTask || isStudyLocked || !isRewardBudgetReady}
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF5500] px-5 text-base font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              <Play className="h-5 w-5 fill-current" /> Mulai Belajar
+            </button>
+          </div>
+
+          <aside className="space-y-5">
+            <section className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5 sm:p-6">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#FF5500] shadow-sm"><ShieldCheck className="h-5 w-5" /></span>
+              <h2 className="mt-4 text-base font-black text-slate-900">Sesi yang tetap fokus</h2>
+              <ul className="mt-3 space-y-3 text-xs leading-relaxed text-slate-600">
+                <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" /> Gerakan pointer, sentuhan, keyboard, scroll, dan interaksi lain di aplikasi mereset batas diam 1 menit 20 detik.</li>
+                <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" /> Sesi dijeda otomatis hanya jika tidak ada aktivitas selama 1 menit 20 detik.</li>
+                <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" /> Progres sesi disimpan di perangkat dan dipulihkan dalam keadaan dijeda.</li>
+              </ul>
+              <p className="mt-4 rounded-xl border border-orange-100 bg-white/80 p-3 text-[10px] leading-relaxed text-slate-500">Berpindah ke tab lain tidak langsung menjeda sesi. Waktu tetap dihitung, lalu timer diselaraskan saat kamu kembali.</p>
+            </section>
+          </aside>
+        </section>
+      )}
+
+      {isSessionLive && session && (
+        <section className="relative z-10 mx-auto max-w-xl">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-extrabold ${session.status === "running" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+              <span className={`h-2 w-2 rounded-full ${session.status === "running" ? "animate-pulse bg-emerald-500" : "bg-slate-400"}`} />
+              {session.status === "running" ? "Fokus berjalan" : "Sesi dijeda"}
+            </span>
+            <button type="button" onClick={() => setShowCancelConfirm(true)} className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-red-50 hover:text-red-600">Akhiri sesi</button>
+          </div>
+
+          {sessionNotice && (
+            <div role="status" className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="flex-1">{sessionNotice}</span>
+              <button type="button" onClick={() => setSessionNotice("")} aria-label="Tutup pemberitahuan" className="rounded p-0.5 hover:bg-amber-100"><X className="h-4 w-4" /></button>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+            <div className="border-b border-slate-100 p-5 sm:p-7">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#FF5500]">Tugas aktif</p>
+              <h2 className="mt-1 break-words text-xl font-black leading-snug text-slate-900">{session.taskTitle}</h2>
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Clock3 className="h-3.5 w-3.5" /> Pomodoro {session.durationMinutes} menit</p>
+            </div>
+            <div className="p-6 text-center sm:p-8">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><Timer className="h-7 w-7" /></div>
+              <p className="font-mono text-6xl font-black tracking-tighter text-slate-900 sm:text-7xl" aria-live="off">{formatTime(session.remainingSeconds)}</p>
+              <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">{session.status === "paused" ? "Dijeda" : "Waktu tersisa"}</p>
+              <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Progres sesi fokus" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressPercent)}>
+                <div className="h-full rounded-full bg-gradient-to-r from-[#FF5500] to-amber-400 transition-[width] duration-500" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className="mt-2 text-right text-[10px] font-semibold text-slate-400">{Math.floor(session.focusedSeconds / 60)} menit fokus</p>
+              <div className="mt-7 flex gap-3">
+                {session.status === "running" ? (
+                  <button type="button" onClick={pauseSession} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-extrabold text-slate-700 transition hover:bg-slate-50"><Pause className="h-4 w-4" /> Jeda</button>
+                ) : (
+                  <button type="button" onClick={resumeSession} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF5500] text-sm font-extrabold text-white transition hover:bg-orange-600"><Play className="h-4 w-4 fill-current" /> Lanjutkan</button>
+                )}
+              </div>
+            </div>
+          </div>
+          <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-400">Sesi otomatis dijeda bila tidak ada aktivitas selama 1 menit 20 detik.</p>
+        </section>
+      )}
+
+      {session?.status === "completed" && (
+        <section className="relative z-10 mx-auto max-w-xl rounded-3xl border border-emerald-100 bg-white p-6 text-center shadow-sm sm:p-8">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-7 w-7" /></span>
+          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-600">Sesi selesai</p>
+          <h2 className="mt-1 text-xl font-black text-slate-900">{session.taskTitle}</h2>
+          <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-2xl bg-orange-50 px-4 py-3 text-[#FF5500]"><Coins className="h-5 w-5" /><span className="text-xl font-black">+{(session.rewardCoins ?? 0).toLocaleString()}</span><span className="text-xs font-bold">koin</span></div>
+          {session.bonusCoins ? <p className="mt-2 text-xs font-bold text-emerald-600">Termasuk bonus tugas selesai +{session.bonusCoins} koin</p> : <p className="mt-2 text-xs font-semibold text-slate-500">Tugas disimpan untuk dilanjutkan nanti.</p>}
+          {session.rewardCoins === 0 && <p className="mt-2 text-xs font-semibold text-amber-700">Batas koin periode ini sudah tercapai; tidak ada koin tambahan untuk sesi ini.</p>}
+          {cooldownUntilMs !== null && cooldownUntilMs > clockNow && rewardBudget.earnedCoins >= STUDY_REWARD_CAP && (
+            <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-800">Batas {STUDY_REWARD_CAP} koin tercapai. Gami-Study bisa digunakan lagi {formatDate(new Date(cooldownUntilMs).toISOString())}.</p>
+          )}
+          {session.rewardStatus === "pending" && <p role="status" className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-800">Koin belum terkonfirmasi oleh server. Riwayat sesi dan reward tersimpan lokal.</p>}
+          {session.rewardStatus === "local" && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-600">Reward tercatat di perangkat ini.</p>}
+          {submissionNote && session.rewardStatus !== "pending" && <p className="mt-3 text-xs leading-relaxed text-slate-500">{submissionNote}</p>}
+          <button type="button" onClick={startNewSession} className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-extrabold text-white transition hover:bg-slate-700"><RefreshCw className="h-4 w-4" /> Atur sesi baru</button>
+        </section>
+      )}
+
+      {!isSessionLive && session?.status !== "evaluation" && session?.status !== "completed" && history.length > 0 && (
+        <section className="relative z-10 mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4 flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><History className="h-5 w-5" /></span><div><h2 className="text-base font-black text-slate-900">Riwayat belajar</h2><p className="text-xs text-slate-500">Sesi Gami-Study terakhir</p></div></div>
+          <div className="divide-y divide-slate-100">
+            {history.slice(0, 5).map((item) => (
+              <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.outcome === "completed" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-[#FF5500]"}`}><BookOpen className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1"><p className="truncate text-xs font-extrabold text-slate-800">{item.taskTitle}</p><p className="mt-0.5 text-[10px] text-slate-500">{formatDate(item.createdAt)} · {item.durationMinutes} menit</p></div>
+                <span className="shrink-0 text-xs font-extrabold text-[#FF5500]">+{item.coins} koin</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <AnimatePresence>
+        {session?.status === "evaluation" && (
+          <Modal onClose={() => undefined}>
+            <div className="text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><Sparkles className="h-7 w-7" /></span>
+              <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#FF5500]">Pomodoro selesai</p>
+              <h2 className="mt-2 text-2xl font-black leading-tight text-slate-900">Apakah tugas <span className="text-[#FF5500]">{session.taskTitle}</span> sudah selesai?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">Pilih status tugas untuk menyimpan progres dan klaim koin.</p>
+              {submissionNote && <p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">{submissionNote}</p>}
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button type="button" disabled={isSubmitting} onClick={() => finishSession(true)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl bg-[#FF5500] px-4 py-3 text-white transition hover:bg-orange-600 disabled:opacity-60"><CheckCircle2 className="mb-1 h-5 w-5" /><span className="text-sm font-extrabold">Selesai</span><span className="mt-0.5 text-[10px] font-semibold text-orange-100">Hingga +{sessionCompleteReward} koin termasuk bonus</span></button>
+                <button type="button" disabled={isSubmitting} onClick={() => finishSession(false)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-60"><Clock3 className="mb-1 h-5 w-5 text-[#FF5500]" /><span className="text-sm font-extrabold">Belum selesai</span><span className="mt-0.5 text-[10px] font-semibold text-slate-500">Simpan progres + hingga {sessionProgressReward} koin</span></button>
+              </div>
+              {isSubmitting && <p className="mt-4 text-xs font-semibold text-slate-500">Menyimpan sesi dan reward…</p>}
+            </div>
+          </Modal>
+        )}
+
         {showCancelConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[32px] p-6 w-full max-w-xs text-center shadow-2xl relative overflow-hidden flex flex-col items-center"
-            >
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <AlertTriangle className="w-8 h-8 text-red-500" />
+          <Modal onClose={() => setShowCancelConfirm(false)}>
+            <div className="text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600"><AlertTriangle className="h-6 w-6" /></span>
+              <h2 className="mt-4 text-xl font-black text-slate-900">Akhiri sesi sekarang?</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">Waktu fokus yang sudah tercatat tidak akan mendapat koin pada sesi ini.</p>
+              <div className="mt-5 flex gap-2">
+                <button type="button" onClick={() => setShowCancelConfirm(false)} className="h-11 flex-1 rounded-xl border border-slate-200 text-sm font-extrabold text-slate-700 hover:bg-slate-50">Lanjut belajar</button>
+                <button type="button" onClick={cancelSession} className="h-11 flex-1 rounded-xl bg-red-600 text-sm font-extrabold text-white hover:bg-red-700">Akhiri sesi</button>
               </div>
-              <h3 className="font-bold text-xl text-[#1A1A1A] mb-2">
-                Batalkan Sesi?
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Progress kamu akan hilang dan Poin tidak akan didapat.
-              </p>
-
-              <div className="flex w-full gap-3">
-                <button
-                  onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 transition"
-                >
-                  Teruskan
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCancelConfirm(false);
-                    setIsActive(false);
-                    setSessionState("idle");
-                    setPetState("idle");
-                    setTimeLeft(POMODORO_TIME);
-                    setSummaryNotes("");
-                    setEarnedPoints(0);
-                  }}
-                  className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition shadow-[0_4px_15px_rgba(239,68,68,0.4)]"
-                >
-                  Batalkan
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </Modal>
         )}
       </AnimatePresence>
-
-      {/* Random Focus Check Modal */}
-      <AnimatePresence>
-        {isCheckActive && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] p-8 w-full max-w-sm text-center shadow-2xl relative overflow-hidden"
-            >
-              {/* Pulsing Alert BG */}
-              <div className="absolute inset-0 bg-[#FF6B00]/5 animate-pulse" />
-
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner ring-8 ring-red-50">
-                  <Bell className="w-10 h-10 text-red-500 animate-[wiggle_1s_ease-in-out_infinite]" />
-                </div>
-
-                <h3 className="text-2xl font-black text-[#1A1A1A] mb-2 tracking-tight">
-                  Apakah kamu di sana?
-                </h3>
-                <p className="text-sm text-gray-500 font-medium mb-6">
-                  Klik tombol di bawah sebelum waktu habis untuk melanjutkan
-                  sesi study kamu!
-                </p>
-
-                <div className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-full font-mono font-bold text-xl mb-8 border border-red-100">
-                  <Clock className="w-5 h-5" /> 00:
-                  {checkTimeLeft.toString().padStart(2, "0")}
-                </div>
-
-                <button
-                  onClick={handleImStillWorking}
-                  className="w-full h-16 rounded-2xl bg-[#FF6B00] text-black font-extrabold text-lg uppercase tracking-wider shadow-[0_0_30px_rgba(255,107,0,0.4)] hover:shadow-[0_0_40px_rgba(255,107,0,0.6)] active:scale-95 transition-all text-center flex items-center justify-center"
-                >
-                  SAYA MASIH BELAJAR!
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <style>{`
-        @keyframes wiggle {
-          0%, 100% { transform: rotate(-10deg); }
-          50% { transform: rotate(10deg); }
-        }
-      `}</style>
-    </div>
+    </main>
   );
 }
 
-function PdfReader({ material }: { material: StudyMaterial }) {
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <section className="mb-5 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-[#FF6B00]" />
-          <h4 className="truncate text-xs font-extrabold text-slate-700">Membaca materi PDF</h4>
-        </div>
-        <a href={material.url} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] font-bold text-[#FF6B00] hover:underline">Buka penuh</a>
-      </div>
-      <iframe
-        src={`${material.url}#toolbar=1&navpanes=0&view=FitH`}
-        title={`Pembaca PDF: ${material.file.name}`}
-        className="h-[55vh] min-h-[320px] w-full bg-white sm:h-[600px]"
-      />
-      <p className="px-4 py-2 text-[10px] text-slate-500">Gunakan kontrol pembaca untuk menggulir dan memperbesar halaman.</p>
-    </section>
+    <motion.div
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/55 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      role="presentation"
+    >
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7"
+      >
+        {children}
+      </motion.div>
+    </motion.div>
   );
 }

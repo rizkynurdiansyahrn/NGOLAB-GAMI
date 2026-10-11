@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="98" y1="44" x2="841" y2="605" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12213B"/>
+      <stop offset="1" stop-color="#070D19"/>
+    </linearGradient>
+    <linearGradient id="red" x1="339" y1="282" x2="531" y2="361" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB7185"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#67E8F9"/>
+      <stop offset="1" stop-color="#0891B2"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" stroke="#A5C6E8" stroke-opacity=".16" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="960" height="640" rx="36" fill="url(#bg)"/>
+  <circle cx="817" cy="104" r="166" fill="#0EA5E9" fill-opacity=".11"/>
+  <circle cx="107" cy="557" r="185" fill="#F97316" fill-opacity=".1"/>
+  <rect x="38" y="38" width="884" height="564" rx="28" stroke="#BFE8FF" stroke-opacity=".12" stroke-width="2"/>
+  <text x="80" y="126" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="42" font-weight="800" letter-spacing="1">TRAFFIC ESCAPE</text>
+  <text x="82" y="164" fill="#9FB5CF" font-family="Arial, sans-serif" font-size="18" font-weight="600" letter-spacing="3">GESER MOBIL • BUKA JALAN • KELUAR</text>
+  <g transform="translate(236 194)">
+    <rect width="384" height="384" rx="24" fill="#13243A" stroke="#8BC5E5" stroke-opacity=".35" stroke-width="3"/>
+    <rect width="384" height="384" rx="24" fill="url(#grid)"/>
+    <rect x="257" y="130" width="127" height="64" rx="22" fill="url(#red)" stroke="#FFE4E6" stroke-opacity=".8" stroke-width="3" filter="url(#glow)"/>
+    <rect x="278" y="140" width="40" height="19" rx="8" fill="#FFF1F2" fill-opacity=".72"/>
+    <rect x="324" y="140" width="40" height="19" rx="8" fill="#FFF1F2" fill-opacity=".72"/>
+    <circle cx="278" cy="190" r="9" fill="#101827" stroke="#FECACA" stroke-width="2"/>
+    <circle cx="360" cy="190" r="9" fill="#101827" stroke="#FECACA" stroke-width="2"/>
+    <rect x="8" y="8" width="119" height="56" rx="17" fill="url(#cyan)" stroke="#CFFAFE" stroke-opacity=".8" stroke-width="2"/>
+    <rect x="24" y="16" width="31" height="15" rx="6" fill="#ECFEFF" fill-opacity=".7"/>
+    <rect x="66" y="16" width="31" height="15" rx="6" fill="#ECFEFF" fill-opacity=".7"/>
+    <rect x="136" y="72" width="56" height="120" rx="17" fill="#8B5CF6" stroke="#E9D5FF" stroke-opacity=".75" stroke-width="2"/>
+    <rect x="144" y="88" width="14" height="29" rx="6" fill="#F5F3FF" fill-opacity=".72"/>
+    <rect x="144" y="128" width="14" height="29" rx="6" fill="#F5F3FF" fill-opacity=".72"/>
+    <rect x="200" y="8" width="56" height="111" rx="17" fill="#F59E0B" stroke="#FEF3C7" stroke-opacity=".8" stroke-width="2"/>
+    <rect x="208" y="20" width="14" height="27" rx="6" fill="#FFFBEB" fill-opacity=".75"/>
+    <rect x="208" y="78" width="14" height="27" rx="6" fill="#FFFBEB" fill-opacity=".75"/>
+    <rect x="72" y="207" width="56" height="113" rx="17" fill="#22C55E" stroke="#DCFCE7" stroke-opacity=".8" stroke-width="2"/>
+    <rect x="80" y="220" width="14" height="28" rx="6" fill="#F0FDF4" fill-opacity=".72"/>
+    <rect x="80" y="276" width="14" height="28" rx="6" fill="#F0FDF4" fill-opacity=".72"/>
+    <rect x="137" y="264" width="119" height="56" rx="17" fill="#F97316" stroke="#FFEDD5" stroke-opacity=".8" stroke-width="2"/>
+    <rect x="152" y="272" width="31" height="15" rx="6" fill="#FFF7ED" fill-opacity=".75"/>
+    <rect x="210" y="272" width="31" height="15" rx="6" fill="#FFF7ED" fill-opacity=".75"/>
+    <rect x="264" y="207" width="56" height="112" rx="17" fill="#14B8A6" stroke="#CCFBF1" stroke-opacity=".8" stroke-width="2"/>
+    <rect x="272" y="220" width="14" height="27" rx="6" fill="#F0FDFA" fill-opacity=".74"/>
+    <rect x="272" y="277" width="14" height="27" rx="6" fill="#F0FDFA" fill-opacity=".74"/>
+    <path d="M384 137h26v50h-26" stroke="#6EE7B7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M410 162h27m-10-10 10 10-10 10" stroke="#6EE7B7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(659 255)">
+    <rect width="211" height="128" rx="22" fill="#0D1A2C" stroke="#69D5CE" stroke-opacity=".35" stroke-width="2"/>
+    <text x="22" y="39" fill="#5EEAD4" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2">PUZZLE KEMACETAN</text>
+    <text x="22" y="72" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="22" font-weight="800">5 LEVEL</text>
+    <text x="22" y="101" fill="#9FB5CF" font-family="Arial, sans-serif" font-size="16" font-weight="600">Sentuh dan geser</text>
+    <path d="M174 22v38m0 0-12-12m12 12 12-12" stroke="#FDBA74" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x="659" y="410" width="211" height="64" rx="20" fill="#FB7A28"/>
+  <text x="764.5" y="450" text-anchor="middle" fill="#311407" font-family="Arial, sans-serif" font-size="19" font-weight="800" letter-spacing="1">MULAI MAIN</text>
+</svg>

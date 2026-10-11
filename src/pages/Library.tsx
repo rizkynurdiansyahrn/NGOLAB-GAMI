@@ -9,6 +9,7 @@ import { dummyGames, Game } from "../data/dummyData";
 import GameCard from "../components/GameCard";
 import HeaderNav from "../components/HeaderNav";
 import { AppUser } from "../data/appData";
+import { DEFAULT_AVATAR } from "../lib/userProfile";
 
 type SortOption = "rating" | "title";
 
@@ -16,27 +17,38 @@ interface LibraryProps {
   user?: AppUser;
   onPlay: (gameId: string) => void;
   onSelectDetail?: (game: Game) => void;
+  onAvatarClick?: () => void;
 }
 
-export default function Library({ user, onPlay, onSelectDetail }: LibraryProps) {
+export default function Library({ user, onPlay, onSelectDetail, onAvatarClick }: LibraryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const favoriteStorageKey = `ngolab-library-favorites:${user?.id ?? "guest"}`;
+  const [hydratedFavoritesKey, setHydratedFavoritesKey] = useState("");
 
   const filterPills = ["Semua", "Populer", "Baru", "Arcade", "Puzzle", "Kasual"];
 
   useEffect(() => {
-    const savedFavorites = window.localStorage.getItem("ngolab-library-favorites");
-    if (savedFavorites) {
-      setFavoriteIds(JSON.parse(savedFavorites));
+    try {
+      const savedFavorites = JSON.parse(window.localStorage.getItem(favoriteStorageKey) || "[]");
+      setFavoriteIds(Array.isArray(savedFavorites) ? savedFavorites.filter((id) => typeof id === "string") : []);
+    } catch {
+      setFavoriteIds([]);
     }
-  }, []);
+    setHydratedFavoritesKey(favoriteStorageKey);
+  }, [favoriteStorageKey]);
 
   useEffect(() => {
-    window.localStorage.setItem("ngolab-library-favorites", JSON.stringify(favoriteIds));
-  }, [favoriteIds]);
+    if (hydratedFavoritesKey !== favoriteStorageKey) return;
+    try {
+      window.localStorage.setItem(favoriteStorageKey, JSON.stringify(favoriteIds));
+    } catch {
+      // Favorites remain usable in memory when storage is unavailable.
+    }
+  }, [favoriteIds, favoriteStorageKey, hydratedFavoritesKey]);
 
   const visibleGames = useMemo(() => {
     return [...dummyGames]
@@ -76,10 +88,11 @@ export default function Library({ user, onPlay, onSelectDetail }: LibraryProps) 
       <HeaderNav
         breadcrumb="Dashboard Pemain"
         user={{
-          name: user?.name || "Budi Gamer",
-          avatar: user?.avatar || "https://i.pravatar.cc/150?u=budi_gamer",
-          level: user?.level || 12,
+          name: user?.name || "Pengguna Ngolab-Gami",
+          avatar: user?.avatar || DEFAULT_AVATAR,
+          level: user?.level ?? 1,
         }}
+        onAvatarClick={onAvatarClick}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Home,
   Trophy,
@@ -18,10 +18,12 @@ import Profile from "./Profile";
 import Achievement from "./Achievement";
 import Notifications from "./Notifications";
 import SettingsPage from "./Settings";
-import { AppUser, mockUser } from "../data/appData";
+import { AppUser } from "../data/appData";
 import { Game } from "../data/dummyData";
 import EditProfileModal from "../components/EditProfileModal";
 import { AnimatePresence } from "motion/react";
+import { API_BASE_URL } from "../lib/api";
+import { avatarUrlForApi, normalizeUserProfile } from "../lib/userProfile";
 
 type Tab =
   | "home"
@@ -37,82 +39,54 @@ type Tab =
   | "settings";
 
 export default function MobileAppLayout({
-  userId,
+  initialUser,
+  accessToken,
   onLogout,
   onPlay,
 }: {
-  userId: string | null;
+  initialUser: AppUser;
+  accessToken: string | null;
   onLogout: () => void;
   onPlay: (id: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [hasOpenedStudy, setHasOpenedStudy] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [user, setUser] = useState<AppUser>(mockUser);
+  const userId = initialUser.id;
+  const [user, setUser] = useState<AppUser>(() => normalizeUserProfile(initialUser));
+  const [profileError, setProfileError] = useState("");
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  const refreshUserProfile = async () => {
-    if (!userId) return;
+  useEffect(() => {
+    setUser(normalizeUserProfile(initialUser));
+  }, [initialUser]);
+
+  const refreshUserProfile = useCallback(async (signal?: AbortSignal) => {
+    if (!userId || !accessToken) return;
     try {
-      const response = await fetch(`https://geasture.kolab.top/api/users/${userId}/recommendations`, { cache: 'no-store' });
-      if (response.ok) {
-        const data = await response.json();
-        const apiUser = data.user || {};
-        const pts = apiUser.coin_balance ?? apiUser.points ?? apiUser.coins ?? user.points;
-        const uname = apiUser.nama ?? apiUser.name ?? apiUser.username ?? user.name;
-        setUser((prev) => ({
-          ...prev,
-          name: uname,
-          points: Number(pts),
-        }));
-      }
+      const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/recommendations`, {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+      });
+      if (!response.ok) throw new Error(`Profile request failed: ${response.status}`);
+      const data = await response.json();
+      if (!data.user || String(data.user.id) !== userId) throw new Error("Invalid profile response");
+      if (signal?.aborted) return;
+      setUser((previous) => normalizeUserProfile(data.user, previous));
+      setProfileError("");
     } catch (err) {
-      console.warn("Gagal menyegarkan poin user:", err);
+      if (signal?.aborted) return;
+      console.warn("Gagal memperbarui profil:", err);
+      setProfileError("Profil belum dapat diperbarui. Data akun terakhir tetap ditampilkan.");
     }
-  };
+  }, [userId, accessToken]);
 
   useEffect(() => {
-    if (!userId) return;
-    let isMounted = true;
-
-    const fetchUserProfile = async () => {
-      try {
-        const response = await fetch(`https://geasture.kolab.top/api/users/${userId}/recommendations`, { cache: 'no-store' });
-        if (!response.ok) throw new Error("HTTP error " + response.status);
-        const data = await response.json();
-
-        if (isMounted) {
-          const apiUser = data.user || {};
-          const pts = apiUser.coin_balance ?? apiUser.points ?? apiUser.coins ?? mockUser.points;
-          const uname = apiUser.nama ?? apiUser.name ?? apiUser.username ?? mockUser.name;
-          const userAvatar = apiUser.avatar_url ?? apiUser.avatar ?? mockUser.avatar;
-
-          setUser({
-            id: userId,
-            name: uname,
-            points: Number(pts),
-            level: apiUser.level ?? mockUser.level,
-            exp: apiUser.exp ?? mockUser.exp,
-            nextExp: apiUser.nextExp ?? mockUser.nextExp,
-            avatar: userAvatar,
-            streak: apiUser.streak ?? mockUser.streak,
-          });
-        }
-      } catch (err) {
-        console.error("Gagal mengambil profil dari API, menggunakan mock:", err);
-        setUser({
-          ...mockUser,
-          id: userId,
-          name: userId.startsWith("08") ? `User (${userId.slice(-4)})` : mockUser.name,
-        });
-      }
-    };
-
-    fetchUserProfile();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [userId]);
+    const controller = new AbortController();
+    void refreshUserProfile(controller.signal);
+    return () => controller.abort();
+  }, [refreshUserProfile]);
 
   const handleSelectDetail = (game: Game) => {
     setSelectedGame(game);
@@ -126,6 +100,9 @@ export default function MobileAppLayout({
         className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24"
         style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom))" }}
       >
+        {profileError && (
+          <p role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{profileError}</p>
+        )}
         {activeTab === "home" && (
           <MobileDashboard
             userId={userId}
@@ -142,6 +119,7 @@ export default function MobileAppLayout({
             user={user}
             onPlay={onPlay}
             onSelectDetail={handleSelectDetail}
+            onAvatarClick={() => setActiveTab("profile")}
           />
         )}
         {activeTab === "detail" && (
@@ -150,6 +128,7 @@ export default function MobileAppLayout({
             user={user}
             onBack={() => setActiveTab("library")}
             onPlay={onPlay}
+            onAvatarClick={() => setActiveTab("profile")}
           />
         )}
         {activeTab === "leaderboard" && <MobileLeaderboard user={user} />}
@@ -160,12 +139,16 @@ export default function MobileAppLayout({
             onLogout={onLogout}
           />
         )}
-        {activeTab === "achievement" && <Achievement />}
+        {activeTab === "achievement" && <Achievement user={user} />}
         {activeTab === "notifications" && <Notifications />}
         {activeTab === "settings" && <SettingsPage />}
         {activeTab === "patungan" && <MobilePatungan userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
-        {activeTab === "study" && <MobileStudyTracker userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
-        {activeTab === "rewards" && <MobileRewards userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
+        {hasOpenedStudy && (
+          <div className={activeTab === "study" ? "block" : "hidden"} aria-hidden={activeTab !== "study"}>
+            <MobileStudyTracker userId={userId} user={user} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
+          </div>
+        )}
+        {activeTab === "rewards" && <MobileRewards user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} onPointsUpdated={(points) => setUser((previous) => ({ ...previous, points, pointsAvailable: true }))} />}
       </div>
 
       {/* Bottom Floating Navigation Bar (Screenshots 3, 4, 5) */}
@@ -195,9 +178,12 @@ export default function MobileAppLayout({
           <NavButton
             id="tab_study"
             active={activeTab === "study"}
-            onClick={() => setActiveTab("study")}
+            onClick={() => {
+              setHasOpenedStudy(true);
+              setActiveTab("study");
+            }}
             icon={<BookOpen className="w-5 h-5" />}
-            label="Study Track"
+            label="Gami-Study"
           />
           <NavButton
             active={activeTab === "profile"}
@@ -215,33 +201,23 @@ export default function MobileAppLayout({
             user={user}
             onClose={() => setIsEditProfileOpen(false)}
             onSave={async (updatedUser) => {
-              if (userId) {
-                try {
-                  const response = await fetch(`https://geasture.kolab.top/api/users/${userId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      nama: updatedUser.name,
-                      avatar_url: updatedUser.avatar,
-                    }),
-                  });
-
-                  if (response.ok) {
-                    const data = await response.json();
-                    const updatedApiUser = data.user || {};
-                    setUser((prev) => ({
-                      ...prev,
-                      name: updatedApiUser.nama ?? updatedApiUser.name ?? updatedUser.name,
-                      avatar: updatedApiUser.avatar_url ?? updatedApiUser.avatar ?? updatedUser.avatar,
-                    }));
-                  }
-                } catch (e) {
-                  setUser(updatedUser);
-                }
-              } else {
-                setUser(updatedUser);
+              if (!userId || !accessToken) throw new Error("Silakan masuk kembali sebelum mengubah profil.");
+              const changes: { nama: string; avatar_url?: string } = { nama: updatedUser.name };
+              if (updatedUser.avatar !== user.avatar) {
+                changes.avatar_url = avatarUrlForApi(updatedUser.avatar, userId);
               }
-              setIsEditProfileOpen(false);
+              const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify(changes),
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok) throw new Error(data?.message || "Perubahan profil belum dapat disimpan.");
+              if (!data?.user || String(data.user.id) !== userId) throw new Error("Data profil hasil penyimpanan belum tersedia.");
+              setUser((previous) => normalizeUserProfile(data.user, previous));
             }}
           />
         )}

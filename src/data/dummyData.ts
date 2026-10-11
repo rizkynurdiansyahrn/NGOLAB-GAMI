@@ -73,10 +73,10 @@ export const dummyGames: Game[] = [
   },
   {
     id: "ngolab-doodle-road",
-    title: "Ngolab Doodle Road",
-    category: "Physics Puzzle",
+    title: "Ngolab Traffic Escape",
+    category: "Puzzle",
     rating: 5.0,
-    thumbnail: "/thumbnails/doodle_road_thumbnail.png",
+    thumbnail: "/thumbnails/traffic_escape_thumbnail.svg",
     isFeatured: true,
     isGame: true,
   },

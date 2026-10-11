@@ -1,13 +1,46 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import { pathToFileURL } from 'node:url';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
+function studyCoachApiPlugin(env: Record<string, string>): Plugin {
+  return {
+    name: 'ngolab-study-coach-api',
+    apply: 'serve',
+    async configureServer(server) {
+      // Load server code directly so extraction module URLs stay relative to server/.
+      const moduleUrl = pathToFileURL(
+        path.resolve(server.config.root, 'server/study-coach-app.mjs'),
+      ).href;
+      const { createStudyCoachApp } = await import(moduleUrl);
+      const app = createStudyCoachApp({ ...process.env, ...env });
+      server.httpServer?.once('close', () => app.locals.closeStudyCoach?.());
+      server.middlewares.use((req, res, next) => {
+        const requestPath = req.url?.split('?')[0];
+        if (
+          requestPath === '/api/health' ||
+          requestPath === '/api/study-coach' ||
+          requestPath?.startsWith('/api/study-coach/')
+        ) {
+          app(req, res, next);
+          return;
+        }
+        next();
+      });
+      server.config.logger.info('Study Coach API aktif bersama aplikasi di port 3000.');
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const membershipApiTarget = (env.VITE_API_BASE_URL || 'https://geasteats.ngolab.online').replace(/\/+$/, '');
+
   return {
     plugins: [
+      studyCoachApiPlugin(env),
       react(),
       tailwindcss(),
       VitePWA({
@@ -38,9 +71,6 @@ export default defineConfig(({mode}) => {
         },
       }),
     ],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -48,8 +78,22 @@ export default defineConfig(({mode}) => {
     },
     server: {
       port: 3000,
+      strictPort: true,
       host: '0.0.0.0',
       hmr: process.env.DISABLE_HMR !== 'true',
+      proxy: {
+        '/membership-api': {
+          target: membershipApiTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (requestPath) => requestPath.replace(/^\/membership-api/, ''),
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyRequest) => {
+              proxyRequest.removeHeader('origin');
+            });
+          },
+        },
+      },
     },
   };
 });

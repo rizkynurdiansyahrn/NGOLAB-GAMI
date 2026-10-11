@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, Crown, Gamepad2, MousePointer2, Sparkles, Trophy, X, Zap } from 'lucide-react';
 
 interface GameProps {
   onGameOver: (score: number) => void;
@@ -26,7 +27,8 @@ const ARENA_RADIUS = 1200;
 const SEGMENT_SPACING = 14;
 const BASE_SPEED = 110;
 const BOOST_SPEED = 200;
-const AI_NAMES = ['AstroWorm', 'BytePython', 'CyberCobra', 'DeltaDragon', 'EchoViper'];
+const AI_COUNT = 8;
+const AI_NAMES = ['AstroWorm', 'BytePython', 'CyberCobra', 'DeltaDragon', 'EchoViper', 'FluxSerpent', 'NeonViper', 'PixelBoa'];
 const COLOR_PALETTE = ['#f43f5e', '#a855f7', '#10b981', '#3b82f6', '#f59e0b', '#06b6d4', '#ec4899'];
 
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min;
@@ -42,6 +44,7 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
+  const [boosting, setBoosting] = useState(false);
 
   const stateRef = useRef({
     state: 'START',
@@ -139,7 +142,7 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
       spawnInitialFood();
       const state = stateRef.current;
       state.playerSnake = createSnake('player', 'Me', false, '#22d3ee', ARENA_RADIUS, ARENA_RADIUS);
-      state.aiSnakes = Array.from({ length: 5 }, (_, i) => spawnAISnake(i));
+      state.aiSnakes = Array.from({ length: AI_COUNT }, (_, i) => spawnAISnake(i));
       state.particles = [];
       state.score = 0;
       state.invulnTimer = 2.0; // 2 seconds spawn grace period
@@ -444,7 +447,7 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
 
         // Filter out dead AIs and respawn them
         state.aiSnakes = state.aiSnakes.filter((ai) => !deadAIs.includes(ai.id));
-        while (state.aiSnakes.length < 5) {
+        while (state.aiSnakes.length < AI_COUNT) {
           state.aiSnakes.push(spawnAISnake(state.aiSnakes.length));
         }
       }
@@ -614,14 +617,19 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
       drawGrid(cameraX, cameraY);
 
       // Draw Arena boundary circle
-      ctx.strokeStyle = '#ef4444';
+      ctx.strokeStyle = '#22d3ee';
       ctx.lineWidth = 6;
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 25;
+      ctx.shadowColor = '#22d3ee';
+      ctx.shadowBlur = 24;
       ctx.beginPath();
       ctx.arc(ARENA_RADIUS - cameraX, ARENA_RADIUS - cameraY, ARENA_RADIUS, 0, Math.PI * 2);
       ctx.stroke();
       ctx.shadowBlur = 0; // reset
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.22)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ARENA_RADIUS - cameraX, ARENA_RADIUS - cameraY, ARENA_RADIUS - 12, 0, Math.PI * 2);
+      ctx.stroke();
 
       // Draw Food
       state.foods.forEach((food) => {
@@ -631,16 +639,22 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
         // Skip drawing if outside viewport
         if (fx < -20 || fx > canvas.width + 20 || fy < -20 || fy > canvas.height + 20) return;
 
-        ctx.fillStyle = food.color;
         const pulse = Math.sin(Date.now() * 0.005 + food.pulse * 10) * 0.18 + 0.82;
+        const glow = ctx.createRadialGradient(fx, fy, food.radius * 0.2, fx, fy, food.radius * 2.5 * pulse);
+        glow.addColorStop(0, `${food.color}99`);
+        glow.addColorStop(1, `${food.color}00`);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(fx, fy, food.radius * 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = food.color;
         ctx.beginPath();
         ctx.arc(fx, fy, food.radius * pulse, 0, Math.PI * 2);
         ctx.fill();
-
-        // Small neon glow around food
-        ctx.fillStyle = `${food.color}33`;
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
         ctx.beginPath();
-        ctx.arc(fx, fy, food.radius * 2.2 * pulse, 0, Math.PI * 2);
+        ctx.arc(fx - food.radius * 0.18, fy - food.radius * 0.18, Math.max(1.2, food.radius * 0.24), 0, Math.PI * 2);
         ctx.fill();
       });
 
@@ -684,11 +698,20 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
       animationRef.current = requestAnimationFrame(loop);
     }
 
-    const handlePointerDown = () => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (stateRef.current.state !== 'PLAYING') return;
+      event.preventDefault();
       stateRef.current.isBoosting = true;
+      setBoosting(true);
+      canvas.setPointerCapture(event.pointerId);
     };
     const handlePointerUp = () => {
       stateRef.current.isBoosting = false;
+      setBoosting(false);
+    };
+    const handleWindowBlur = () => {
+      stateRef.current.isBoosting = false;
+      setBoosting(false);
     };
     const handlePointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -697,42 +720,87 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
     };
 
     canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointerup', handlePointerUp);
     canvas.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       window.removeEventListener('resize', resize);
       canvas.removeEventListener('pointerdown', handlePointerDown);
-      canvas.removeEventListener('pointerup', handlePointerUp);
       canvas.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handleWindowBlur);
       if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     };
   }, [gameState, onGameOver, highScore]);
 
   const startGame = () => {
     stateRef.current.state = 'PLAYING';
+    stateRef.current.isBoosting = false;
+    setBoosting(false);
     setGameState('PLAYING');
   };
 
   return (
-    <div className="relative w-full min-h-screen overflow-hidden bg-[#02050f] text-white font-sans">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full touch-none" />
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.1),_transparent_40%)]" />
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#050b18] font-sans text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_18%_12%,rgba(34,211,238,0.16),transparent_34%),radial-gradient(ellipse_at_86%_84%,rgba(168,85,247,0.14),transparent_34%),linear-gradient(180deg,#0a1224_0%,#050b18_72%,#080c1a_100%)]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.11]"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(103, 232, 249, 0.17) 1px, transparent 1px), linear-gradient(90deg, rgba(103, 232, 249, 0.17) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'linear-gradient(to bottom, black, transparent 90%)',
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        aria-label="Arena Neon Slither. Gerakkan kursor atau jari untuk mengarahkan ular. Tahan untuk turbo."
+        className="absolute inset-0 z-0 block h-full w-full touch-none"
+      />
 
-      {/* Top Header stats during play */}
       {gameState === 'PLAYING' && (
-        <div className="absolute left-6 top-6 z-10 rounded-2xl border border-white/5 bg-slate-950/80 p-4 shadow-xl backdrop-blur-md">
-          <div className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-1">Skor Kamu</div>
-          <div className="text-3xl font-black text-cyan-300">{score}</div>
-          <div className="mt-2 text-[10px] text-slate-500 font-medium">Rekor: {highScore}</div>
-        </div>
-      )}
+        <>
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-20 sm:inset-x-5 sm:top-4">
+            <div className="mx-auto flex w-full max-w-5xl items-start justify-between gap-2">
+              <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:max-w-[390px]">
+                <div className="rounded-2xl border border-cyan-200/15 bg-[#10192b]/85 px-3 py-2.5 shadow-[0_12px_36px_rgba(0,0,0,0.26)] backdrop-blur-xl sm:rounded-[20px] sm:px-4 sm:py-3">
+                  <div className="flex items-center gap-1.5 text-[8px] font-extrabold uppercase tracking-[0.16em] text-cyan-100/65 sm:text-[9px]">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-200" aria-hidden="true" /> Skor
+                  </div>
+                  <div className="mt-0.5 text-xl font-black tabular-nums text-cyan-100 sm:text-2xl">{score}</div>
+                </div>
+                <div className="rounded-2xl border border-amber-200/15 bg-[#10192b]/85 px-3 py-2.5 shadow-[0_12px_36px_rgba(0,0,0,0.26)] backdrop-blur-xl sm:rounded-[20px] sm:px-4 sm:py-3">
+                  <div className="flex items-center gap-1.5 text-[8px] font-extrabold uppercase tracking-[0.16em] text-amber-100/65 sm:text-[9px]">
+                    <Crown className="h-3.5 w-3.5 text-amber-200" aria-hidden="true" /> Rekor
+                  </div>
+                  <div className="mt-0.5 text-xl font-black tabular-nums text-amber-100 sm:text-2xl">{highScore}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Kembali ke menu"
+                title="Kembali ke menu"
+                onClick={onExit}
+                className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#10192b]/90 text-slate-200 shadow-lg backdrop-blur-xl transition hover:bg-white/10 active:scale-95 sm:h-12 sm:w-12 sm:rounded-[20px]"
+              >
+                <X className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
 
-      {/* Speed Boost tip */}
-      {gameState === 'PLAYING' && (
-        <div className="absolute left-6 bottom-6 z-10 hidden sm:block rounded-full border border-white/5 bg-slate-950/70 px-4 py-2 text-xs text-slate-300 backdrop-blur-sm">
-          💡 <span className="font-bold text-cyan-300">Tahan klik</span> untuk mengaktifkan turbo!
-        </div>
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 sm:inset-x-5 sm:bottom-5">
+            <div className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-[#091326]/85 px-3.5 py-2 text-[9px] font-bold text-slate-200 shadow-lg backdrop-blur-xl sm:gap-3 sm:px-5 sm:py-2.5 sm:text-[10px]">
+              <span className="flex items-center gap-1.5"><MousePointer2 className="h-3.5 w-3.5 text-cyan-200" aria-hidden="true" /> Gerakkan kursor atau jari untuk berbelok</span>
+              <span className="hidden h-3 w-px bg-white/15 sm:block" />
+              <span className={'flex items-center gap-1.5 ' + (boosting ? 'text-fuchsia-200' : 'text-slate-300')}>
+                <Zap className="h-3.5 w-3.5 text-fuchsia-300" aria-hidden="true" />
+                {boosting ? 'Turbo aktif - ekor menyusut' : 'Tahan layar atau klik untuk turbo'}
+              </span>
+            </div>
+          </div>
+        </>
       )}
 
       <AnimatePresence>
@@ -741,35 +809,99 @@ export default function NgolabNeonSlither({ onGameOver, onExit }: GameProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-6"
+            className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-[#030712]/75 p-3 backdrop-blur-md sm:p-6"
           >
-            <div className="w-full max-w-md rounded-3xl border border-cyan-500/25 bg-slate-950/90 p-8 text-center shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
-              <h1 className="text-3xl font-black tracking-tight text-cyan-300 mb-2 uppercase">Neon Slither</h1>
-              <p className="mb-6 text-xs text-slate-400 leading-relaxed">
-                Slither di dalam arena digital, kumpulkan bola cahaya untuk bertambah panjang, dan jebak ular lain agar menabrak badan Anda. Jangan menabrak badan ular lain!
-              </p>
+            <motion.section
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative my-auto max-h-full w-full max-w-[470px] overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[#10192b]/95 p-5 text-center shadow-[0_30px_100px_rgba(0,0,0,0.6)] sm:rounded-[32px] sm:p-7"
+            >
+              <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-fuchsia-400/10 blur-3xl" />
+              {gameState === 'START' ? (
+                <div className="relative">
+                  <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-cyan-100/20 bg-gradient-to-br from-cyan-200 to-sky-400 text-[#082b3d] shadow-[0_12px_32px_rgba(34,211,238,0.22)]">
+                    <Gamepad2 className="h-9 w-9" strokeWidth={2.5} aria-hidden="true" />
+                  </div>
+                  <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-100/10 bg-cyan-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-200">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Ngolab Arcade
+                  </div>
+                  <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">Neon Slither</h1>
+                  <p className="mx-auto mt-2 max-w-[350px] text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
+                    Jelajahi arena neon, kumpulkan energi, dan hindari tubuh ular lain agar bisa tumbuh lebih panjang.
+                  </p>
 
-              {gameState === 'GAMEOVER' && (
-                <div className="mb-6 rounded-2xl border border-white/5 bg-white/5 p-4 text-left">
-                  <div className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-bold mb-1">Skor Akhir</div>
-                  <div className="text-4xl font-extrabold text-white">{score}</div>
-                  <div className="mt-2 text-xs text-slate-500 font-medium">Rekor Terbaik: {Math.max(highScore, score)}</div>
+                  <div className="my-5 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-2xl border border-cyan-200/10 bg-cyan-300/[0.06] px-1.5 py-3 sm:px-2">
+                      <Sparkles className="mx-auto mb-1.5 h-5 w-5 text-cyan-200" aria-hidden="true" />
+                      <div className="text-[11px] font-black text-cyan-100 sm:text-xs">KUMPULKAN</div>
+                      <div className="mt-1 text-[9px] font-semibold text-slate-400">Energi neon</div>
+                    </div>
+                    <div className="rounded-2xl border border-fuchsia-200/10 bg-fuchsia-300/[0.06] px-1.5 py-3 sm:px-2">
+                      <Zap className="mx-auto mb-1.5 h-5 w-5 text-fuchsia-200" aria-hidden="true" />
+                      <div className="text-[11px] font-black text-fuchsia-100 sm:text-xs">TURBO</div>
+                      <div className="mt-1 text-[9px] font-semibold text-slate-400">Tahan untuk boost</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-extrabold text-white">
+                      <MousePointer2 className="h-4 w-4 text-cyan-200" aria-hidden="true" /> Cara bermain
+                    </div>
+                    <p className="text-[10px] leading-4 text-slate-300 sm:text-xs sm:leading-5">
+                      Gerakkan kursor atau jari untuk mengarahkan ular. Makan cahaya untuk tumbuh; jangan menyentuh ular lain atau batas arena.
+                    </p>
+                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-fuchsia-300/[0.07] p-2.5 text-[10px] font-semibold leading-4 text-fuchsia-100/85">
+                      <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fuchsia-300" aria-hidden="true" />
+                      <span>Tahan klik atau layar untuk turbo. Ular melaju lebih cepat, tetapi panjang ekor dan skor akan berkurang.</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={startGame}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-200 to-sky-400 px-5 py-3 text-sm font-black uppercase tracking-[0.1em] text-[#082b3d] shadow-[0_10px_26px_rgba(34,211,238,0.2)] transition hover:brightness-105 active:scale-[0.98]"
+                  >
+                    Mulai bermain <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <button type="button" onClick={onExit} className="mt-2 h-10 w-full rounded-xl text-xs font-bold text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
+                    Kembali ke menu
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-cyan-400/10 text-amber-200 shadow-[0_12px_32px_rgba(251,191,36,0.16)]">
+                    <Trophy className="h-9 w-9" strokeWidth={2.3} aria-hidden="true" />
+                  </div>
+                  <div className="mb-2 inline-flex rounded-full border border-amber-100/10 bg-amber-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.17em] text-amber-200">Sesi selesai</div>
+                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Slither tumbang!</h2>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">Kamu mengumpulkan {score} poin. Coba lagi dan raih rekor yang lebih tinggi.</p>
+
+                  <div className="my-5 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-2xl border border-cyan-200/10 bg-cyan-300/[0.06] px-3 py-4">
+                      <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-100/60">Skor akhir</div>
+                      <div className="mt-1 text-3xl font-black tabular-nums text-cyan-100">{score}</div>
+                    </div>
+                    <div className="rounded-2xl border border-amber-200/10 bg-amber-300/[0.06] px-3 py-4">
+                      <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-amber-100/60">Rekor terbaik</div>
+                      <div className="mt-1 text-3xl font-black tabular-nums text-amber-100">{Math.max(highScore, score)}</div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={startGame}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-200 to-sky-400 px-5 py-3 text-sm font-black uppercase tracking-[0.1em] text-[#082b3d] shadow-[0_10px_26px_rgba(34,211,238,0.2)] transition hover:brightness-105 active:scale-[0.98]"
+                  >
+                    Main lagi <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <button type="button" onClick={onExit} className="mt-2 h-10 w-full rounded-xl text-xs font-bold text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
+                    Kembali ke menu
+                  </button>
                 </div>
               )}
-
-              <button
-                onClick={startGame}
-                className="mb-3 inline-flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-6 py-4 text-base font-bold uppercase text-slate-950 transition-all hover:bg-cyan-400 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-cyan-500/25 cursor-pointer"
-              >
-                {gameState === 'START' ? 'Mulai Bermain' : 'Main Lagi'}
-              </button>
-              <button
-                onClick={onExit}
-                className="inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-semibold uppercase text-slate-200 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              >
-                Kembali ke Menu
-              </button>
-            </div>
+            </motion.section>
           </motion.div>
         )}
       </AnimatePresence>

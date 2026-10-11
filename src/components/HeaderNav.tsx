@@ -1,5 +1,6 @@
 import React from "react";
 import { Search, Bell, ChevronRight } from "lucide-react";
+import { DEFAULT_AVATAR } from "../lib/userProfile";
 
 interface HeaderNavProps {
   breadcrumb?: string;
@@ -50,29 +51,30 @@ export default function HeaderNav({
           className="relative p-2 rounded-full hover:bg-slate-200/70 text-slate-600 transition-colors shrink-0"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#FF5500] rounded-full ring-2 ring-white"></span>
         </button>
 
         {/* User Profile Chip */}
-        <div
+        <button
+          type="button"
+          aria-label="Buka profil pengguna"
           onClick={onAvatarClick}
-          className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm rounded-full py-1 px-3 cursor-pointer transition-all shrink-0"
+          className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 shadow-sm rounded-full py-1 px-3 cursor-pointer transition-all shrink-0 text-left"
         >
           <div className="text-right hidden xs:block">
             <p className="text-xs font-bold text-slate-900 leading-tight">
-              {user?.name || "Budi Gamer"}
+              {user?.name || "Pengguna Ngolab-Gami"}
             </p>
             <p className="text-[10px] text-slate-400 font-medium leading-none">
-              {user?.level ? `VIP ${user.level}` : "VIP 12"}
+              Level {user?.level ?? 1}
             </p>
           </div>
           <img
-            src={user?.avatar || "https://i.pravatar.cc/150?u=budi_gamer"}
+            src={user?.avatar || DEFAULT_AVATAR}
             alt="User Avatar"
             className="w-7 h-7 rounded-full object-cover border border-slate-300"
             referrerPolicy="no-referrer"
           />
-        </div>
+        </button>
       </div>
     </header>
   );

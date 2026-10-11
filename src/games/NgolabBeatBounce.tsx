@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, Clock3, Gamepad2, Headphones, Keyboard, Music2, Sparkles, Trophy, Zap } from 'lucide-react';
 
 interface GameProps {
   onGameOver: (score: number) => void;
@@ -37,24 +38,25 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
     state.notes.push({
       id: `note-${state.noteId += 1}`,
       lane,
-      y: -60,
+      y: -12,
       active: true,
     });
   };
 
   useEffect(() => {
+    let lastNotesUpdate = 0;
     const update = (dt: number) => {
       const state = stateRef.current;
       if (state.state !== 'PLAYING') return;
       const seconds = dt / 1000;
       state.spawnTimer += dt;
-      if (state.spawnTimer > 850) {
+      if (state.spawnTimer > 800) {
         spawnNote();
         state.spawnTimer = 0;
       }
       state.notes = state.notes.filter((note) => {
-        note.y += 240 * seconds; // Slightly increased speed for dynamic flow
-        if (note.y > 520) {
+        note.y += 48 * seconds;
+        if (note.y > 104) {
           if (note.active) {
             state.combo = 0;
             setCombo(0);
@@ -64,7 +66,10 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
         }
         return true;
       });
-      setNotes([...state.notes]);
+      if (performance.now() - lastNotesUpdate >= 32) {
+        setNotes([...state.notes]);
+        lastNotesUpdate = performance.now();
+      }
     };
 
     const loop = (timestamp: number) => {
@@ -92,7 +97,13 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
           onGameOver(state.score);
         }
       }, 1000);
-      return () => clearInterval(timer);
+      return () => {
+        clearInterval(timer);
+        if (animationRef.current !== null) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+      };
     }
 
     return undefined;
@@ -121,8 +132,8 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
   const handleTap = (lane: number) => {
     const state = stateRef.current;
     if (state.state !== 'PLAYING') return;
-    const hitLine = 440;
-    const windowHeight = 85;
+    const hitLine = 88;
+    const windowHeight = 16;
     let hit = false;
     for (const note of state.notes) {
       if (note.lane !== lane || !note.active) continue;
@@ -130,14 +141,14 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
       if (distance < windowHeight) {
         note.active = false;
         hit = true;
-        const baseScore = 10 + Math.max(0, 30 - Math.floor(distance / 2.5));
+        const baseScore = 10 + Math.max(0, 30 - Math.floor(distance * 1.5));
         state.score += baseScore;
         state.combo += 1;
         setScore(state.score);
         setCombo(state.combo);
 
-        const splashText = distance < 18 ? 'PERFECT' : distance < 40 ? 'AWESOME' : 'GOOD';
-        setFeedback(distance < 18 ? 'Sempurna!' : distance < 40 ? 'Luar Biasa!' : 'Bagus!');
+        const splashText = distance < 4 ? 'PERFECT' : distance < 9 ? 'AWESOME' : 'GOOD';
+        setFeedback(distance < 4 ? 'Sempurna!' : distance < 9 ? 'Luar Biasa!' : 'Bagus!');
 
         if (state.combo % 5 === 0) {
           state.time += 2;
@@ -234,180 +245,268 @@ export default function NgolabBeatBounce({ onGameOver, onExit }: GameProps) {
   }, [gameState]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#050714] text-white font-sans">
-      {/* Background gradients */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(244,63,94,0.08),_transparent_30%)]" />
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#070a17] font-sans text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_15%_8%,rgba(34,211,238,0.18),transparent_32%),radial-gradient(ellipse_at_88%_82%,rgba(217,70,239,0.13),transparent_34%),linear-gradient(180deg,#0a1021_0%,#070a17_68%,#0a1020_100%)]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.12]"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(165, 243, 252, 0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(165, 243, 252, 0.18) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'linear-gradient(to bottom, black, transparent 90%)',
+        }}
+      />
+      <div className="pointer-events-none absolute -left-24 top-1/3 h-64 w-64 rounded-full bg-cyan-400/10 blur-[90px]" />
+      <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-fuchsia-400/10 blur-[100px]" />
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-between px-4 py-6">
-        {/* Info panel */}
-        <div className="w-full max-w-2xl rounded-3xl border border-white/5 bg-slate-950/70 p-4 shadow-xl shadow-slate-950/50 backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-black tracking-wider bg-gradient-to-r from-cyan-400 via-sky-400 to-fuchsia-400 bg-clip-text text-transparent">BEAT BOUNCE</h1>
-              <p className="mt-1 text-xs text-slate-400">Tekuk lajur saat ketukan melintasi garis. Jaga kombo untuk bonus waktu.</p>
+      <div className="relative z-10 flex h-full min-h-0 flex-col items-center gap-3 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
+        <header className="flex w-full max-w-5xl flex-col gap-3 rounded-2xl border border-white/10 bg-[#11182a]/85 p-3 shadow-[0_14px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[24px] sm:p-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[15px] bg-gradient-to-br from-cyan-200 to-sky-400 text-[#082332] shadow-[0_6px_18px_rgba(34,211,238,0.22)] sm:h-11 sm:w-11">
+              <Music2 className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />
             </div>
-            <div className="flex gap-4 text-xs font-bold text-slate-300">
-              <div className="rounded-xl bg-white/5 px-3 py-1.5 border border-white/5">Skor: <span className="text-cyan-400 font-extrabold">{score}</span></div>
-              <div className="rounded-xl bg-white/5 px-3 py-1.5 border border-white/5">Kombo: <span className="text-pink-400 font-extrabold">{combo}</span></div>
-              <div className="rounded-xl bg-white/5 px-3 py-1.5 border border-white/5">Waktu: <span className="text-amber-400 font-extrabold">{timeLeft}s</span></div>
+            <div className="min-w-0">
+              <div className="text-[8px] font-extrabold uppercase tracking-[0.2em] text-cyan-200/80">Ngolab Arcade</div>
+              <h1 className="truncate text-base font-black tracking-wide text-white sm:text-lg">BEAT BOUNCE</h1>
+              <p className="hidden text-[10px] text-slate-400 sm:block">Ketuk saat nada menyentuh garis bercahaya.</p>
             </div>
           </div>
-        </div>
 
-        {/* Music Lane tracks container */}
-        <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-cyan-500/10 bg-slate-950/90 shadow-2xl">
-          {/* Subtle Grid overlay for rhythm vibe */}
-          <div className="absolute inset-0 bg-[#070a1e] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(to_right,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+          <div className="grid grid-cols-3 gap-2 md:min-w-[390px] md:max-w-[510px] md:flex-1">
+            <div className="rounded-xl border border-cyan-200/10 bg-cyan-300/[0.06] px-2.5 py-2 sm:rounded-2xl sm:px-3">
+              <div className="text-[8px] font-extrabold uppercase tracking-[0.12em] text-cyan-100/60 sm:text-[9px]">Skor</div>
+              <div className="mt-0.5 text-base font-black tabular-nums text-cyan-100 sm:text-lg">{score}</div>
+            </div>
+            <div className="rounded-xl border border-fuchsia-200/10 bg-fuchsia-300/[0.06] px-2.5 py-2 sm:rounded-2xl sm:px-3">
+              <div className="text-[8px] font-extrabold uppercase tracking-[0.12em] text-fuchsia-100/60 sm:text-[9px]">Kombo</div>
+              <div className="mt-0.5 text-base font-black tabular-nums text-fuchsia-100 sm:text-lg">{combo}<span className="ml-1 text-[9px] font-bold text-slate-400">x</span></div>
+            </div>
+            <div className={`rounded-xl border px-2.5 py-2 sm:rounded-2xl sm:px-3 ${timeLeft <= 10 ? 'border-rose-200/25 bg-rose-300/[0.08]' : 'border-amber-200/10 bg-amber-300/[0.06]'}`}>
+              <div className={`flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-[0.12em] sm:text-[9px] ${timeLeft <= 10 ? 'text-rose-200/80' : 'text-amber-100/60'}`}>
+                <Clock3 className="h-3 w-3" aria-hidden="true" /> Waktu
+              </div>
+              <div className={`mt-0.5 text-base font-black tabular-nums sm:text-lg ${timeLeft <= 10 ? 'animate-pulse text-rose-200' : 'text-amber-100'}`}>{timeLeft}<span className="ml-1 text-[9px] font-bold text-slate-400">dtk</span></div>
+            </div>
+          </div>
+        </header>
 
-          {/* Lane dividers */}
-          <div className="absolute inset-y-0 left-[25%] w-px bg-white/5 pointer-events-none" />
-          <div className="absolute inset-y-0 left-[50%] w-px bg-white/5 pointer-events-none" />
-          <div className="absolute inset-y-0 left-[75%] w-px bg-white/5 pointer-events-none" />
+        <section className="relative flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-[24px] border border-cyan-200/10 bg-[#080d1b]/90 shadow-[0_24px_70px_rgba(0,0,0,0.32)] sm:rounded-[30px]">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(to_right,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:30px_30px]" />
+          <div className="pointer-events-none absolute inset-y-0 left-1/4 w-px bg-white/[0.07]" />
+          <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/[0.07]" />
+          <div className="pointer-events-none absolute inset-y-0 left-3/4 w-px bg-white/[0.07]" />
 
-          {/* Active Lane glows */}
-          {activeLanes.map((active, idx) => (
+          {activeLanes.map((active, lane) => (
             <div
-              key={`lane-glow-${idx}`}
-              className={`absolute inset-y-0 w-[25%] transition-opacity duration-100 pointer-events-none ${active ? 'opacity-25' : 'opacity-0'
-                }`}
+              key={`lane-glow-${lane}`}
+              className={`pointer-events-none absolute inset-y-0 w-1/4 transition-opacity duration-100 ${active ? 'opacity-100' : 'opacity-0'}`}
               style={{
-                left: `${idx * 25}%`,
-                background: `linear-gradient(to top, ${idx === 0 ? '#22d3ee' : idx === 1 ? '#f43f5e' : idx === 2 ? '#10b981' : '#f59e0b'
-                  }33, transparent)`,
+                left: `${lane * 25}%`,
+                background: `linear-gradient(to top, ${lane === 0 ? '#22d3ee' : lane === 1 ? '#f43f5e' : lane === 2 ? '#10b981' : '#f59e0b'}30, transparent 55%)`,
               }}
             />
           ))}
 
-          {/* Play field */}
-          <div className="relative h-[500px] w-full px-4">
-            {/* Target Hit Line */}
-            <div className="absolute top-[440px] inset-x-0 h-0.5 border-t border-dashed border-white/20 pointer-events-none" />
-            <div className="absolute top-[438px] inset-x-0 h-1 bg-gradient-to-r from-cyan-500/10 via-pink-500/10 to-amber-500/10 blur-[1px] pointer-events-none" />
+          <div className="relative flex min-h-[240px] flex-1 select-none flex-col touch-none">
+            <div className="pointer-events-none absolute inset-x-0 top-[88%] z-10 h-[3px] -translate-y-1/2 bg-gradient-to-r from-cyan-300/15 via-white/70 to-amber-300/15 shadow-[0_0_18px_rgba(165,243,252,0.55)]" />
+            <div className="pointer-events-none absolute left-1/2 top-[88%] z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15 bg-[#11182a]/80 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/70 backdrop-blur sm:px-3 sm:text-[9px]">Zona ketuk</div>
 
-            {/* Notes */}
             {notes.map((note) => (
               <motion.div
                 key={note.id}
                 initial={false}
-                animate={{ top: `${note.y}px`, opacity: note.active ? 1 : 0 }}
-                transition={{ duration: 0.05 }}
-                className={`absolute -translate-x-1/2 w-[21%]`}
-                style={{ left: note.lane === 0 ? '12.5%' : note.lane === 1 ? '37.5%' : note.lane === 2 ? '62.5%' : '87.5%' }}
+                animate={{ top: `${note.y}%`, opacity: note.active ? 1 : 0 }}
+                transition={{ duration: 0.03, ease: 'linear' }}
+                className="absolute z-20 w-[19%] -translate-x-1/2 -translate-y-1/2 sm:w-[16%]"
+                style={{ left: `${note.lane * 25 + 12.5}%` }}
               >
-                {/* 3D-like glowing horizontal capsule note bar */}
-                <div
-                  className={`h-6 w-full rounded-full border border-white/40 shadow-lg ${note.lane === 0 ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 shadow-cyan-400/50' :
-                    note.lane === 1 ? 'bg-gradient-to-r from-pink-400 to-rose-500 shadow-rose-400/50' :
-                      note.lane === 2 ? 'bg-gradient-to-r from-emerald-400 to-teal-500 shadow-emerald-400/50' :
-                        'bg-gradient-to-r from-amber-400 to-orange-500 shadow-orange-400/50'
-                    }`}
-                />
+                <div className={`h-4 w-full rounded-full border border-white/55 shadow-[0_0_22px_currentColor] sm:h-5 ${note.lane === 0 ? 'bg-gradient-to-r from-cyan-300 to-cyan-500 text-cyan-300' : note.lane === 1 ? 'bg-gradient-to-r from-rose-300 to-pink-500 text-rose-300' : note.lane === 2 ? 'bg-gradient-to-r from-emerald-300 to-teal-500 text-emerald-300' : 'bg-gradient-to-r from-amber-200 to-orange-500 text-amber-300'}`} />
               </motion.div>
             ))}
 
-            {/* Hit Splashes */}
             <AnimatePresence>
               {splashes.map((splash) => (
                 <motion.div
                   key={splash.id}
-                  initial={{ opacity: 1, scale: 0.8 }}
-                  animate={{ opacity: 0, scale: 1.35 }}
+                  initial={{ opacity: 1, scale: 0.8, y: 0 }}
+                  animate={{ opacity: 0, scale: 1.15, y: -24 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="absolute top-[420px] -translate-x-1/2 flex flex-col items-center pointer-events-none"
-                  style={{ left: splash.lane === 0 ? '12.5%' : splash.lane === 1 ? '37.5%' : splash.lane === 2 ? '62.5%' : '87.5%' }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
+                  className="pointer-events-none absolute z-30 flex -translate-x-1/2 flex-col items-center"
+                  style={{ left: `${splash.lane * 25 + 12.5}%`, top: '81%' }}
                 >
-                  <div
-                    className="w-16 h-5 rounded-full border-2 blur-[1px]"
-                    style={{ borderColor: splash.color, boxShadow: `0 0 12px ${splash.color}` }}
-                  />
-                  <span
-                    className="text-[9px] font-black tracking-widest mt-1.5"
-                    style={{ color: splash.color, textShadow: `0 0 6px ${splash.color}` }}
-                  >
-                    {splash.text}
-                  </span>
+                  <span className="rounded-full border px-2.5 py-1 text-[8px] font-black tracking-[0.15em] shadow-lg sm:text-[9px]" style={{ color: splash.color, borderColor: `${splash.color}88`, backgroundColor: `${splash.color}18`, boxShadow: `0 0 18px ${splash.color}44` }}>{splash.text}</span>
                 </motion.div>
               ))}
             </AnimatePresence>
 
-            {/* Target Hit Buttons */}
-            <div className="absolute top-[425px] inset-x-0 h-16 pointer-events-auto">
+            <div className="absolute inset-x-0 top-[88%] z-20 h-12 -translate-y-1/2">
               {Array.from({ length: 4 }).map((_, lane) => (
                 <button
                   key={lane}
-                  onMouseDown={() => handleButtonPress(lane)}
-                  onTouchStart={(e) => { e.preventDefault(); handleButtonPress(lane); }}
-                  className={`absolute -translate-x-1/2 inline-flex h-11 w-[21%] items-center justify-center rounded-xl border transition-all duration-75 ${activeLanes[lane]
-                    ? lane === 0 ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.4)] scale-95'
-                      : lane === 1 ? 'bg-pink-500/20 border-pink-400 shadow-[0_0_12px_rgba(244,63,94,0.4)] scale-95'
-                        : lane === 2 ? 'bg-emerald-500/20 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.4)] scale-95'
-                          : 'bg-amber-500/20 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)] scale-95'
-                    : 'bg-slate-950/60 border-white/10 hover:border-white/20'
-                    } ${lane === 0 ? 'left-[12.5%]' : lane === 1 ? 'left-[37.5%]' : lane === 2 ? 'left-[62.5%]' : 'left-[87.5%]'}`}
+                  type="button"
+                  aria-label={`Ketuk lajur ${['A', 'B', 'C', 'D'][lane]}`}
+                  title={`Ketuk atau tekan ${['A', 'B', 'C', 'D'][lane]}`}
+                  onClick={() => handleButtonPress(lane)}
+                  className={`absolute top-1/2 inline-flex h-11 w-[21%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl border text-xs font-black tracking-wider shadow-lg transition-all duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-12 sm:w-[18%] ${activeLanes[lane]
+                    ? lane === 0 ? 'scale-95 border-cyan-300 bg-cyan-400/25 text-cyan-100 shadow-cyan-400/25'
+                      : lane === 1 ? 'scale-95 border-rose-300 bg-rose-400/25 text-rose-100 shadow-rose-400/25'
+                        : lane === 2 ? 'scale-95 border-emerald-300 bg-emerald-400/25 text-emerald-100 shadow-emerald-400/25'
+                          : 'scale-95 border-amber-300 bg-amber-400/25 text-amber-100 shadow-amber-400/25'
+                    : lane === 0 ? 'border-cyan-200/20 bg-[#10182a]/85 text-cyan-100/70 hover:border-cyan-200/50'
+                      : lane === 1 ? 'border-rose-200/20 bg-[#10182a]/85 text-rose-100/70 hover:border-rose-200/50'
+                        : lane === 2 ? 'border-emerald-200/20 bg-[#10182a]/85 text-emerald-100/70 hover:border-emerald-200/50'
+                          : 'border-amber-200/20 bg-[#10182a]/85 text-amber-100/70 hover:border-amber-200/50'
+                    }`}
+                  style={{ left: `${lane * 25 + 12.5}%`, WebkitTapHighlightColor: 'transparent' }}
                 >
-                  <span className={`text-xs font-black tracking-wider ${activeLanes[lane] ? 'text-white' : 'text-slate-500'}`}>
-                    {['A', 'B', 'C', 'D'][lane]}
-                  </span>
+                  <span className="mr-1.5 hidden sm:inline">LAJUR</span>{['A', 'B', 'C', 'D'][lane]}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Feedback bar */}
-          <div className="py-3 bg-slate-950/60 border-t border-white/5 text-center">
-            <p className="text-xs font-semibold text-slate-300">{feedback}</p>
+          <div className="relative flex min-h-10 items-center justify-center border-t border-white/[0.07] bg-[#080d18]/85 px-3 py-2 text-center">
+            <p className={`text-[10px] font-bold sm:text-xs ${feedback.includes('terlewat') || feedback.includes('pas') ? 'text-rose-200' : 'text-slate-300'}`}>{feedback}</p>
           </div>
-        </div>
+        </section>
 
-        {/* Bottom controls */}
-        <div className="flex w-full max-w-2xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            onClick={gameState === 'PLAYING' ? () => { stateRef.current.state = 'GAMEOVER'; setGameState('GAMEOVER'); onGameOver(stateRef.current.score); } : startGame}
-            className="w-full rounded-2xl bg-cyan-500 py-3.5 text-sm font-bold uppercase tracking-wider text-slate-950 transition-all hover:bg-cyan-400 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-cyan-500/20 sm:w-auto px-8"
-          >
-            {gameState === 'PLAYING' ? 'Selesai' : 'Mulai Bermain'}
-          </button>
-          <button
-            onClick={onExit}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 text-sm font-semibold uppercase tracking-wider text-slate-300 transition-all hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] sm:w-auto px-6"
-          >
-            Kembali ke Menu
-          </button>
-        </div>
+        <footer className="flex w-full max-w-5xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-[9px] font-semibold text-slate-400 sm:text-xs">
+            <Keyboard className="h-4 w-4 shrink-0 text-cyan-200" aria-hidden="true" />
+            <span className="truncate">Ketuk lajur atau tekan A • B • C • D</span>
+          </div>
+          {gameState === 'PLAYING' && (
+            <button
+              type="button"
+              onClick={() => {
+                if (stateRef.current.state !== 'PLAYING') return;
+                stateRef.current.state = 'GAMEOVER';
+                setGameState('GAMEOVER');
+                onGameOver(stateRef.current.score);
+              }}
+              className="shrink-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-300 transition hover:bg-white/10 sm:px-4 sm:text-[10px]"
+            >
+              Selesai
+            </button>
+          )}
+        </footer>
       </div>
 
-      {/* Game Over modal */}
       <AnimatePresence>
+        {gameState === 'START' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#030712]/75 p-3 backdrop-blur-md sm:p-6"
+          >
+            <motion.section
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative my-auto max-h-full w-full max-w-[460px] overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[#11182a]/95 p-5 text-center shadow-[0_30px_100px_rgba(0,0,0,0.6)] sm:rounded-[32px] sm:p-7"
+            >
+              <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-fuchsia-400/10 blur-3xl" />
+              <div className="relative">
+                <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-cyan-100/20 bg-gradient-to-br from-cyan-200 to-sky-400 text-[#082332] shadow-[0_12px_32px_rgba(34,211,238,0.22)]">
+                  <Headphones className="h-9 w-9" strokeWidth={2.5} aria-hidden="true" />
+                </div>
+                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-100/10 bg-cyan-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-200">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Ngolab Arcade
+                </div>
+                <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">Beat Bounce</h2>
+                <p className="mx-auto mt-2 max-w-[340px] text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
+                  Ikuti irama, tekan lajur yang tepat, dan pertahankan kombo untuk memperpanjang permainan.
+                </p>
+
+                <div className="my-5 grid grid-cols-3 gap-2.5">
+                  <div className="rounded-2xl border border-amber-200/10 bg-amber-300/[0.06] px-1.5 py-3 sm:px-2">
+                    <Clock3 className="mx-auto mb-1.5 h-5 w-5 text-amber-200" aria-hidden="true" />
+                    <div className="text-[11px] font-black text-amber-100 sm:text-xs">40 DETIK</div>
+                    <div className="mt-1 text-[9px] font-semibold text-slate-400">Waktu awal</div>
+                  </div>
+                  <div className="rounded-2xl border border-cyan-200/10 bg-cyan-300/[0.06] px-1.5 py-3 sm:px-2">
+                    <Gamepad2 className="mx-auto mb-1.5 h-5 w-5 text-cyan-200" aria-hidden="true" />
+                    <div className="text-[11px] font-black text-cyan-100 sm:text-xs">4 LAJUR</div>
+                    <div className="mt-1 text-[9px] font-semibold text-slate-400">Sentuh / klik</div>
+                  </div>
+                  <div className="rounded-2xl border border-fuchsia-200/10 bg-fuchsia-300/[0.06] px-1.5 py-3 sm:px-2">
+                    <Zap className="mx-auto mb-1.5 h-5 w-5 text-fuchsia-200" aria-hidden="true" />
+                    <div className="text-[11px] font-black text-fuchsia-100 sm:text-xs">+2 DETIK</div>
+                    <div className="mt-1 text-[9px] font-semibold text-slate-400">Setiap 5 kombo</div>
+                  </div>
+                </div>
+
+                <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-extrabold text-white">
+                    <Keyboard className="h-4 w-4 text-cyan-200" aria-hidden="true" /> Cara bermain
+                  </div>
+                  <p className="text-[10px] leading-4 text-slate-300 sm:text-xs sm:leading-5">
+                    Ketuk tombol <b className="text-cyan-200">A, B, C, atau D</b> saat nada melintasi zona ketuk di bagian bawah jalurnya. Ketukan meleset mengurangi 2 detik; nada yang terlewat memutus kombo.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={startGame}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-200 to-sky-400 px-5 py-3 text-sm font-black uppercase tracking-[0.1em] text-[#082332] shadow-[0_10px_26px_rgba(34,211,238,0.18)] transition hover:brightness-105 active:scale-[0.98]"
+                >
+                  Mulai bermain <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" onClick={onExit} className="mt-2 h-10 w-full rounded-xl text-xs font-bold text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
+                  Kembali ke menu
+                </button>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+
         {gameState === 'GAMEOVER' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 p-6 backdrop-blur-sm"
+            className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#030712]/80 p-3 backdrop-blur-md sm:p-6"
           >
-            <div className="w-full max-w-sm rounded-[32px] border border-cyan-500/20 bg-slate-950 p-6 text-center shadow-2xl shadow-cyan-500/20">
-              <h2 className="text-3xl font-black text-cyan-400 tracking-wider">LAGU SELESAI</h2>
-              <div className="my-6 rounded-2xl border border-white/5 bg-white/5 p-4">
-                <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400">Skor Kamu</p>
-                <p className="text-4xl font-extrabold text-white mt-1">{score}</p>
-                <p className="text-[11px] text-slate-400 mt-2">Kombo Maksimal: <span className="text-white font-bold">{combo}</span></p>
-              </div>
-              <div className="flex flex-col gap-2">
+            <motion.section
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative my-auto max-h-full w-full max-w-[420px] overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[#11182a]/95 p-5 text-center shadow-[0_30px_100px_rgba(0,0,0,0.6)] sm:rounded-[32px] sm:p-7"
+            >
+              <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-amber-300/10 blur-3xl" />
+              <div className="relative">
+                <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-fuchsia-400/10 text-amber-200 shadow-[0_12px_32px_rgba(251,191,36,0.16)]">
+                  <Trophy className="h-9 w-9" strokeWidth={2.3} aria-hidden="true" />
+                </div>
+                <div className="mb-2 inline-flex rounded-full border border-amber-100/10 bg-amber-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.17em] text-amber-200">Sesi selesai</div>
+                <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Beat selesai!</h2>
+                <p className="mt-2 text-xs leading-5 text-slate-400">Bagus! Coba lagi untuk menjaga irama lebih lama dan membangun kombo yang lebih tinggi.</p>
+
+                <div className="my-5 grid grid-cols-2 gap-2.5">
+                  <div className="rounded-2xl border border-cyan-200/10 bg-cyan-300/[0.06] px-3 py-4">
+                    <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-100/60">Skor akhir</div>
+                    <div className="mt-1 text-3xl font-black tabular-nums text-cyan-100">{score}</div>
+                  </div>
+                  <div className="rounded-2xl border border-fuchsia-200/10 bg-fuchsia-300/[0.06] px-3 py-4">
+                    <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-fuchsia-100/60">Kombo akhir</div>
+                    <div className="mt-1 text-3xl font-black tabular-nums text-fuchsia-100">{combo}</div>
+                  </div>
+                </div>
+
                 <button
+                  type="button"
                   onClick={startGame}
-                  className="w-full rounded-2xl bg-cyan-500 py-3.5 text-sm font-bold uppercase tracking-wider text-slate-950 transition-all hover:bg-cyan-400"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-200 to-sky-400 px-5 py-3 text-sm font-black uppercase tracking-[0.1em] text-[#082332] shadow-[0_10px_26px_rgba(34,211,238,0.18)] transition hover:brightness-105 active:scale-[0.98]"
                 >
-                  Main Lagi
+                  Main lagi <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button
-                  onClick={onExit}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 text-sm font-semibold uppercase tracking-wider text-slate-300 transition hover:bg-white/10"
-                >
-                  Kembali ke Menu
+                <button type="button" onClick={onExit} className="mt-2 h-10 w-full rounded-xl text-xs font-bold text-slate-400 transition hover:bg-white/[0.04] hover:text-white">
+                  Kembali ke menu
                 </button>
               </div>
-            </div>
+            </motion.section>
           </motion.div>
         )}
       </AnimatePresence>

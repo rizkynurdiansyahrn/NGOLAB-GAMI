@@ -14,8 +14,10 @@ import {
   Zap,
   ArrowLeft,
 } from "lucide-react";
+import { API_BASE_URL } from "../lib/api";
+import { normalizeUserProfile, type AuthSession } from "../lib/userProfile";
 
-export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => void }) {
+export default function MobileLogin({ onLogin }: { onLogin: (session: AuthSession) => void }) {
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,36 +35,34 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://geasture.kolab.top/api/auth/login", {
+      const identifier = phone.trim();
+      const credentials = identifier.includes("@")
+        ? { email: identifier, password }
+        : { phone_number: identifier, password };
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone_number: phone, password }),
+        body: JSON.stringify(credentials),
       });
+      const data = await response.json().catch(() => null);
 
-      if (response.ok) {
-        const data = await response.json();
-        const apiUser = data.user || data;
-        onLogin({
-          id: apiUser.id || "user_" + Math.random().toString(36).substring(2, 9),
-          name: apiUser.nama || apiUser.name || "User Gami",
-          points: apiUser.points || apiUser.coin_balance || 0,
-        });
-      } else {
-        throw new Error("Kredensial salah.");
+      if (!response.ok) {
+        setErrorMsg(data?.message || `Login gagal (HTTP ${response.status}).`);
+        return;
       }
+
+      if (!data?.user?.id || typeof data.token !== "string") {
+        setErrorMsg("Respons login dari server tidak lengkap. Silakan coba lagi.");
+        return;
+      }
+
+      onLogin({
+        user: normalizeUserProfile(data.user),
+        token: data.token,
+      });
     } catch (err) {
-      console.warn("Gagal login via API, mencoba simulasi lokal...", err);
-      if ((phone === "08123456789" || phone === "nama@kampus.ac.id") && password === "ropaldo") {
-        onLogin({ id: "user_ropaldo", name: "Ropaldo", points: 500 });
-      } else if (phone && password) {
-        onLogin({
-          id: "user_" + Math.random().toString(36).substring(2, 7),
-          name: phone.includes("@") ? phone.split("@")[0] : "Budi Gamer",
-          points: 858,
-        });
-      } else {
-        setErrorMsg("Gagal masuk. Periksa email/nomor HP & password Anda.");
-      }
+      console.error("Gagal menghubungi API login:", err);
+      setErrorMsg("Tidak dapat terhubung ke server login. Periksa koneksi lalu coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -70,38 +70,54 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nama || !phone || !email || !password) return;
+    const registration = {
+      name: nama.trim(),
+      phone_number: phone.trim(),
+      email: email.trim(),
+      password,
+    };
+    if (!registration.name || !registration.phone_number || !registration.email || !password) return;
 
     setErrorMsg("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://geasture.kolab.top/api/auth/register", {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nama, phone_number: phone, email, password }),
+        body: JSON.stringify(registration),
       });
+      const data = await response.json().catch(() => null);
 
-      if (response.ok) {
-        const data = await response.json();
-        const apiUser = data.user || data;
-        onLogin({
-          id: apiUser.id || "user_new",
-          name: apiUser.nama || apiUser.name || nama,
-          points: apiUser.points || 0,
-        });
-      } else {
-        throw new Error("Gagal mendaftar via API.");
+      if (!response.ok) {
+        setErrorMsg(data?.message || `Pendaftaran gagal (HTTP ${response.status}).`);
+        return;
       }
+
+      if (!data?.user?.id || typeof data.token !== "string") {
+        setErrorMsg("Respons pendaftaran dari server tidak lengkap. Silakan coba lagi.");
+        return;
+      }
+
+      const submittedProfile = normalizeUserProfile({
+        id: data.user.id,
+        name: registration.name,
+        email: registration.email,
+        phone: registration.phone_number,
+      });
+      onLogin({
+        user: normalizeUserProfile(data.user, submittedProfile),
+        token: data.token,
+      });
     } catch (err) {
-      console.warn("Gagal register via API, simulasi lokal...", err);
-      onLogin({ id: "user_new", name: nama, points: 0 });
+      console.error("Gagal menghubungi API pendaftaran:", err);
+      setErrorMsg("Tidak dapat terhubung ke server pendaftaran. Periksa koneksi lalu coba lagi.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const isLoginDisabled = !phone || !password;
+  const isLoginDisabled = !phone.trim() || !password;
 
   return (
     <div className="flex min-h-screen w-full bg-[#F3F4F8] font-sans items-center justify-center p-3 sm:p-6 lg:p-10">
@@ -253,14 +269,14 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                     {/* Email / Phone */}
                     <div>
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
-                        EMAIL ATAU USERNAME
+                        EMAIL ATAU NOMOR HP
                       </label>
                       <div className="relative">
                         <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           id="input_phone_login"
                           type="text"
-                          placeholder="nama@kampus.ac.id"
+                          placeholder="nama@kampus.ac.id atau 08..."
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
@@ -316,34 +332,6 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                       {!isLoading && <ArrowRight className="w-4 h-4" />}
                     </button>
                   </form>
-
-                  {/* Social divider */}
-                  <div className="relative text-center">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200" />
-                    </div>
-                    <span className="relative bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      ATAU MASUK DENGAN
-                    </span>
-                  </div>
-
-                  {/* Social buttons */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => onLogin({ id: "user_google", name: "Google User", points: 858 })}
-                      className="flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 transition-colors"
-                    >
-                      <span className="font-black text-slate-900">G</span> Google
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onLogin({ id: "user_fb", name: "Facebook User", points: 858 })}
-                      className="flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 transition-colors"
-                    >
-                      <span className="font-black text-blue-600">f</span> Facebook
-                    </button>
-                  </div>
 
                   {/* Register link */}
                   <p className="text-center text-sm text-slate-500 font-medium">
@@ -529,33 +517,6 @@ export default function MobileLogin({ onLogin }: { onLogin: (userObj: any) => vo
                     </button>
                   </p>
 
-                  {/* Social divider */}
-                  <div className="relative text-center">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200" />
-                    </div>
-                    <span className="relative bg-white px-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      ATAU DAFTAR DENGAN
-                    </span>
-                  </div>
-
-                  {/* Social buttons */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => onLogin({ id: "user_google", name: "Google User", points: 858 })}
-                      className="flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 transition-colors"
-                    >
-                      <span className="font-black text-slate-900">G</span> Google
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onLogin({ id: "user_fb", name: "Facebook User", points: 858 })}
-                      className="flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 transition-colors"
-                    >
-                      <span className="font-black text-blue-600">f</span> Facebook
-                    </button>
-                  </div>
                 </motion.div>
               )}
 

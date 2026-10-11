@@ -8,7 +8,7 @@ import { dummyGames, Game } from "../data/dummyData";
 import GameCard from "../components/GameCard";
 import NgolabBurger from "../games/NgolabBurger";
 import NgolabCatch from "../games/NgolabCatch";
-import NgolabDoodleRoad from "../games/NgolabDoodleRoad";
+import NgolabTrafficEscape from "../games/NgolabTrafficEscape";
 import NgolabFitnessQuiz from "../games/NgolabFitnessQuiz";
 import NgolabMemory from "../games/NgolabMemory";
 import NgolabAstroDrift from "../games/NgolabAstroDrift";
@@ -41,7 +41,8 @@ export default function GameHub() {
       case "ngolab-catch":
         return <NgolabCatch onGameOver={handleGameOver} onExit={closeActiveGame} />;
       case "ngolab-doodle-road":
-        return <NgolabDoodleRoad onGameOver={handleGameOver} onExit={closeActiveGame} />;
+      case "ngolab-traffic-escape":
+        return <NgolabTrafficEscape onGameOver={handleGameOver} onExit={closeActiveGame} />;
       case "ngolab-fitness-quiz":
         return <NgolabFitnessQuiz onGameOver={handleGameOver} onExit={closeActiveGame} />;
       case "ngolab-memory":

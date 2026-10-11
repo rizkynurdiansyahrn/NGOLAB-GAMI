@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Camera, Save, X } from 'lucide-react';
 import { AppUser } from '../data/appData';
+import { DEFAULT_AVATAR } from '../lib/userProfile';
 
 interface EditProfileModalProps {
   isOpen: boolean;
   user: AppUser;
   onClose: () => void;
-  onSave: (updatedUser: AppUser) => void;
+  onSave: (updatedUser: AppUser) => void | Promise<void>;
 }
 
 const predefinedAvatars = [
+  DEFAULT_AVATAR,
   "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&q=80&w=200",
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
   "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200",
@@ -22,12 +24,22 @@ const predefinedAvatars = [
 export default function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileModalProps) {
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState(user.avatar);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
-    onSave({ ...user, name, avatar });
-    onClose();
+  const handleSave = async () => {
+    setError("");
+    setIsSaving(true);
+    try {
+      await onSave({ ...user, name: name.trim(), avatar });
+      onClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Profil belum dapat disimpan. Silakan coba lagi.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -69,10 +81,15 @@ export default function EditProfileModal({ isOpen, user, onClose, onSave }: Edit
               {predefinedAvatars.map((imgUrl, idx) => (
                 <button 
                   key={idx}
+                  type="button"
+                  aria-label={idx === 0 ? "Gunakan avatar standar" : `Pilih avatar ${idx}`}
+                  aria-pressed={avatar === imgUrl}
+                  title={idx === 0 ? "Avatar standar" : `Avatar ${idx}`}
+                  disabled={isSaving}
                   onClick={() => setAvatar(imgUrl)}
                   className={`h-10 w-10 rounded-full overflow-hidden border-2 transition-all ${avatar === imgUrl ? 'border-[#FF6B00] scale-110 shadow-[0_0_15px_rgba(255,107,0,0.4)]' : 'border-transparent opacity-60 hover:opacity-100'}`}
                 >
-                  <img src={imgUrl} alt={`Avatar ${idx}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={imgUrl} alt={idx === 0 ? "Avatar standar" : `Avatar ${idx}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                 </button>
               ))}
             </div>
@@ -92,13 +109,15 @@ export default function EditProfileModal({ isOpen, user, onClose, onSave }: Edit
               />
             </div>
             
+            {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
             <button 
               id="btn_simpan_profil"
               onClick={handleSave}
+              disabled={isSaving || !name.trim()}
               className="w-full h-14 rounded-2xl bg-[#FF6B00] text-black font-bold tracking-wide hover:opacity-90 shadow-[0_4px_20px_rgba(255,107,0,0.3)] transition-all flex items-center justify-center gap-2 active:scale-95"
             >
               <Save className="h-5 w-5" />
-              Simpan Perubahan
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
           </div>
         </div>
