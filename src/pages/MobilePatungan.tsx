@@ -93,7 +93,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
       }
       throw new Error("Invalid structure");
     } catch (err) {
-      console.warn("Gagal mengambil patungan rooms dari API, menggunakan mock local storage:", err);
+      if (import.meta.env.DEV) console.warn("Gagal mengambil patungan rooms dari API, menggunakan mock local storage:", err);
       const stored = localStorage.getItem(`patungan_rooms_${userId || 'mock'}`);
       if (stored) {
         setRooms(JSON.parse(stored));
@@ -328,7 +328,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
           if (onRefreshUser) onRefreshUser();
         }, 1500);
       } catch (err) {
-        console.warn("Gagal melakukan transfer peer-to-peer ke server, melakukan simulasi lokal:", err);
+        if (import.meta.env.DEV) console.warn("Gagal melakukan transfer peer-to-peer ke server, melakukan simulasi lokal:", err);
         setTimeout(() => {
           setIsFloating(false);
           user.points -= amount;

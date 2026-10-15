@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { lazy, Suspense, useState, useRef } from 'react';
 import { ArrowLeft, Trophy, X } from 'lucide-react';
 import { dummyGames } from '../data/dummyData';
 
 import { createGameSessionId, earnPoints } from '../lib/pointlab';
+import { createOnceGuard } from '../lib/onceGuard';
 import {
   capMessage,
   decideAward,
@@ -31,17 +32,42 @@ function writeBudgetToStorage(userId: string | null, budget: GamePointsBudget): 
   }
 }
 
-import NgolabBurger from '../games/NgolabBurger';
-import NgolabCatch from '../games/NgolabCatch';
-import NgolabTrafficEscape from '../games/NgolabTrafficEscape';
-import NgolabFitnessQuiz from '../games/NgolabFitnessQuiz';
-import NgolabMemory from '../games/NgolabMemory';
-import NgolabAstroDrift from '../games/NgolabAstroDrift';
-import NgolabBeatBounce from '../games/NgolabBeatBounce';
-import NgolabNeonMerge from '../games/NgolabNeonMerge';
-import NgolabGlowTrail from '../games/NgolabGlowTrail';
-import NgolabSkySwipe from '../games/NgolabSkySwipe';
-import NgolabNeonSlither from '../games/NgolabNeonSlither';
+// Game dimuat terpisah (lazy) supaya bundel awal tetap ringan: hanya game
+// yang benar-benar dimainkan yang diunduh pengguna.
+interface GameComponentProps {
+  onGameOver: (score: number) => void;
+  onExit: () => void;
+  onScoreChange: (score: number) => void;
+}
+
+const LAZY_GAMES: Record<string, React.LazyExoticComponent<React.ComponentType<GameComponentProps>>> = {
+  'ngolab-burger': lazy(() => import('../games/NgolabBurger')),
+  'ngolab-catch': lazy(() => import('../games/NgolabCatch')),
+  'ngolab-traffic-escape': lazy(() => import('../games/NgolabTrafficEscape')),
+  'ngolab-fitness-quiz': lazy(() => import('../games/NgolabFitnessQuiz')),
+  'ngolab-memory': lazy(() => import('../games/NgolabMemory')),
+  'ngolab-astro-drift': lazy(() => import('../games/NgolabAstroDrift')),
+  'ngolab-beat-bounce': lazy(() => import('../games/NgolabBeatBounce')),
+  'ngolab-neon-merge': lazy(() => import('../games/NgolabNeonMerge')),
+  'ngolab-glow-trail': lazy(() => import('../games/NgolabGlowTrail')),
+  'ngolab-sky-swipe': lazy(() => import('../games/NgolabSkySwipe')),
+  'ngolab-neon-slither': lazy(() => import('../games/NgolabNeonSlither')),
+};
+
+function GameLoadingFallback() {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-black text-white">
+      <span
+        role="status"
+        aria-label="Memuat game"
+        className="h-10 w-10 animate-spin rounded-full border-3 border-white/20 border-t-[#FF5500]"
+      />
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        Memuat game...
+      </p>
+    </div>
+  );
+}
 
 interface GameContainerMobileProps {
   userId: string | null;
@@ -59,6 +85,11 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
     targetReached: boolean } | null>(null);
 
   const latestScoreRef = useRef(0);
+  // Sesi hanya dinilai SATU KALI meski dipicu dari beberapa jalur (game over
+  // alami, tombol keluar di dalam game, tombol close di header). Id sesi dibuat
+  // sekali per game dan dipakai sebagai idempotencyKey earn.
+  const sessionGuardRef = useRef(createOnceGuard(() => createGameSessionId(gameId, new Date())));
+  const sessionGuard = sessionGuardRef.current;
 
   const handleScoreChange = (score: number) => {
     latestScoreRef.current = score;
@@ -68,7 +99,9 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
   // target game tercapai -> layak 10 poin (selama kuota harian tersisa),
   // target belum tercapai -> 0 poin.
   const finishSession = async (score: number) => {
-    console.log(`[${gameId}] Sesi berakhir. Skor akhir:`, score);
+    const sessionId = sessionGuard.claim();
+    if (!sessionId) return; // sesi sudah dinilai dari jalur lain — jangan earn dua kali
+    if (import.meta.env.DEV) console.log(`[${gameId}] Sesi berakhir. Skor akhir:`, score);
 
     const targetReached = isTargetReached(score, gameId);
     if (!targetReached) {
@@ -94,7 +127,6 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
     }
 
     // API resmi Loyalty Points (PointLab): POST /api/members/{id}/loyalty/points/earn
-    const sessionId = createGameSessionId(gameId, new Date());
     setGameOverData({ score, points: decision.points, sync: 'pending', capReason: null, targetReached });
     try {
       const result = await earnPoints(memberId, accessToken, {
@@ -111,7 +143,7 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
       if (typeof result?.currentPoints === 'number') onPointsEarned?.(result.currentPoints);
       setGameOverData((prev) => (prev ? { ...prev, sync: 'synced' } : prev));
     } catch (err) {
-      console.warn("Gagal mengirim poin ke layanan loyalty:", err);
+      if (import.meta.env.DEV) console.warn("Gagal mengirim poin ke layanan loyalty:", err);
       setGameOverData((prev) => (prev ? { ...prev, sync: 'failed' } : prev));
     }
   };
@@ -132,28 +164,21 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
   };
 
   const renderGame = () => {
-    switch (gameId) {
-      case 'ngolab-burger': return <NgolabBurger onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-catch': return <NgolabCatch onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-doodle-road':
-      case 'ngolab-traffic-escape': return <NgolabTrafficEscape onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-fitness-quiz': return <NgolabFitnessQuiz onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-memory': return <NgolabMemory onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-astro-drift': return <NgolabAstroDrift onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-beat-bounce': return <NgolabBeatBounce onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-neon-merge': return <NgolabNeonMerge onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-glow-trail': return <NgolabGlowTrail onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-sky-swipe': return <NgolabSkySwipe onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      case 'ngolab-neon-slither': return <NgolabNeonSlither onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />;
-      default:
-        return <div className="text-white p-4">Game tidak ditemukan</div>;
+    const LazyGame = LAZY_GAMES[gameId];
+    if (!LazyGame) {
+      return <div className="text-white p-4">Game tidak ditemukan</div>;
     }
+    return (
+      <Suspense fallback={<GameLoadingFallback />}>
+        <LazyGame onGameOver={handleGameOver} onExit={handleExit} onScoreChange={handleScoreChange} />
+      </Suspense>
+    );
   };
 
   if (!game) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-0 w-auto max-w-none flex-col overflow-hidden bg-black font-sans">
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-0 w-auto max-w-none select-none flex-col overflow-hidden bg-black font-sans">
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm flex items-start justify-between px-4 pt-4 z-30 pointer-events-none">
         
@@ -228,18 +253,14 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-3.5">
+              <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:gap-3.5">
                 <div className="rounded-2xl border border-[#f2e3cd] bg-white/80 p-3.5 sm:p-4">
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#9a7d67] sm:text-[10px]">Skor akhir</p>
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#9a7d67] sm:text-[10px] sm:tracking-[0.12em]">Skor akhir</p>
                   <p className="mt-1 text-2xl font-black tabular-nums tracking-tight text-[#39251e] sm:text-3xl">{gameOverData.score.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-[#f4d9bd] bg-[#fff0dc] p-3.5 sm:p-4">
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#a46e43] sm:text-[10px]">Poin didapat</p>
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#a46e43] sm:text-[10px] sm:tracking-[0.12em]">Poin didapat</p>
                   <p className="mt-1 text-2xl font-black tabular-nums tracking-tight text-[#ed6b16] sm:text-3xl">+{gameOverData.points.toLocaleString()} <span className="text-sm sm:text-base">PT</span></p>
-                </div>
-                <div className="col-span-2 rounded-2xl border border-[#e8e9d8] bg-[#f2f3e8] p-3.5 sm:col-span-1 sm:p-4">
-                  <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#7c8065] sm:text-[10px]">Peringkat sementara</p>
-                  <p className="mt-1 text-2xl font-black tabular-nums tracking-tight text-[#4d6041] sm:text-3xl">#42</p>
                 </div>
               </div>
 
@@ -259,28 +280,18 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
                 </p>
               )}
 
-              <div className="mt-5 rounded-2xl bg-[#f5eee4] px-4 py-3.5 sm:mt-5 sm:px-5">
-                <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-[#755c49]">
-                  <span>Progres peringkat</span>
-                  <span className="tabular-nums text-[#a26037]">42%</span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-[#e5d9c9]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-[#f3a52e] to-[#ef6c1c] shadow-[0_0_12px_rgba(239,108,28,0.24)]" style={{ width: '42%' }} />
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-col gap-2.5 min-[420px]:flex-row sm:mt-6">
+              <div className="mt-5 flex flex-col gap-2.5 sm:mt-6">
                 <button
                   type="button"
                   onClick={() => setGameOverData(null)}
-                  className="min-h-12 rounded-2xl bg-gradient-to-r from-[#ff9c24] to-[#f47717] px-5 py-3 text-sm font-extrabold text-[#2f2118] shadow-[0_7px_18px_rgba(225,113,25,0.2)] transition hover:brightness-105 active:scale-[0.98]"
+                  className="min-h-12 rounded-2xl border border-[#e7d9c9] bg-white/70 px-5 py-3 text-sm font-bold text-[#715a49] transition hover:bg-white active:scale-[0.98]"
                 >
-                  Lihat Rapor Skor
+                  Main Lagi
                 </button>
                 <button
                   type="button"
                   onClick={() => { setGameOverData(null); onClose(); }}
-                  className="min-h-12 rounded-2xl border border-[#e7d9c9] bg-white/70 px-5 py-3 text-sm font-bold text-[#715a49] transition hover:bg-white active:scale-[0.98]"
+                  className="min-h-12 rounded-2xl bg-gradient-to-r from-[#ff9c24] to-[#f47717] px-5 py-3 text-sm font-extrabold text-[#2f2118] shadow-[0_7px_18px_rgba(225,113,25,0.2)] transition hover:brightness-105 active:scale-[0.98]"
                 >
                   Kembali
                 </button>

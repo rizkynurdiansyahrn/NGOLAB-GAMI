@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import MobileLogin from './pages/MobileLogin';
+import LandingPage from './pages/LandingPage';
 import MobileAppLayout from './pages/MobileAppLayout';
 import GameContainerMobile from './pages/GameContainerMobile';
 import type { AppUser } from './data/appData';
@@ -14,8 +15,12 @@ import {
   saveAuthSession,
   clearAuthSession,
 } from './lib/authSession';
+import { normalizeUserProfile } from './lib/userProfile';
+import { IDENTITY_PROVIDER, POINTLAB_API_BASE_URL } from './lib/api';
+import { toProfilePayload } from './lib/identity';
+import { currentReturnUrl, extractTokenFromLocationHash } from './lib/pointlabSso';
 
-type MobileAppState = 'login' | 'hub' | 'playing';
+type MobileAppState = 'landing' | 'login' | 'hub' | 'playing';
 
 // Pulihkan sesi tersimpan sekali saat aplikasi dimuat agar refresh tidak
 // mengembalikan pengguna ke halaman login.
@@ -23,8 +28,9 @@ const restoredSession = loadAuthSession();
 
 export default function App() {
   const [state, setState] = useState<MobileAppState>(
-    restoredSession ? 'hub' : 'login',
+    restoredSession ? 'hub' : 'landing',
   );
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [activeGame, setActiveGame] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(
     restoredSession?.user ?? null,
@@ -32,8 +38,64 @@ export default function App() {
   const [authToken, setAuthToken] = useState<string | null>(
     restoredSession?.token ?? null,
   );
+  const [authNotice, setAuthNotice] = useState('');
+
+  // ── Callback Redirect-Auth dari PointLab ──────────────────────────────
+  // Setelah pengguna login/daftar di PointLab, ia dikembalikan ke aplikasi
+  // ini dengan token JWT di fragment URL (#token=...). Token diverifikasi ke
+  // GET /api/users/profile (Bearer) sebelum dipakai membuat sesi lokal.
+  useEffect(() => {
+    const consumeToken = () => {
+      const token = extractTokenFromLocationHash(window.location.hash);
+      if (!token) return;
+      let cancelled = false;
+      const stripHash = () =>
+        window.history.replaceState(null, '', currentReturnUrl());
+      (async () => {
+        try {
+          const res = await fetch(`${POINTLAB_API_BASE_URL}/api/users/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = res.ok ? await res.json() : null;
+          const profileUser = data?.user;
+          if (cancelled) return;
+          stripHash();
+          if (!profileUser) {
+            setAuthNotice(
+              'Sesi dari PointLab tidak valid atau telah kedaluwarsa. Silakan masuk kembali.',
+            );
+            setState('login');
+            return;
+          }
+          const user = normalizeUserProfile(
+            toProfilePayload(IDENTITY_PROVIDER, profileUser) as unknown as AppUser,
+          );
+          saveAuthSession({ user, token });
+          setCurrentUser(user);
+          setAuthToken(token);
+          setAuthNotice('');
+          toHub();
+        } catch {
+          if (cancelled) return;
+          stripHash();
+          setAuthNotice(
+            'Gagal memverifikasi sesi PointLab. Periksa koneksi lalu coba lagi.',
+          );
+          setState('login');
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    };
+    consumeToken();
+    // Fragment bisa berubah tanpa reload penuh (mis. PWA sudah terbuka).
+    window.addEventListener('hashchange', consumeToken);
+    return () => window.removeEventListener('hashchange', consumeToken);
+  }, []);
 
   // Transitions
+  const toLanding = () => setState('landing');
   const toLogin = () => setState('login');
   const toHub = () => setState('hub');
   
@@ -47,9 +109,28 @@ export default function App() {
     setState('hub');
   };
 
+  // Pengunjung dari landing page masuk ke halaman login/daftar.
+  const openAuth = (tab: 'login' | 'register') => {
+    setAuthTab(tab);
+    toLogin();
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#F3F4F8] flex justify-center selection:bg-[#FF5500]/30 selection:text-slate-900">
       <AnimatePresence mode="wait">
+        {/* Landing page publik untuk pengunjung yang belum masuk akun. */}
+        {state === 'landing' && !currentUser && (
+          <motion.div 
+            className="w-full"
+            key="landing"
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+          >
+            <LandingPage onOpenAuth={openAuth} />
+          </motion.div>
+        )}
+
         {state === 'login' && (
           <motion.div 
             className="w-full flex justify-center"
@@ -58,22 +139,16 @@ export default function App() {
             animate={{ y: 0, opacity: 1 }} 
             exit={{ y: -20, opacity: 0 }}
           >
-            <MobileLogin 
-              onLogin={(session) => {
-                if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-                  document.activeElement.blur();
-                }
-                saveAuthSession(session);
-                setCurrentUser(session.user);
-                setAuthToken(session.token);
-                toHub();
-              }} 
+            <MobileLogin
+              initialTab={authTab}
+              onBackHome={toLanding}
+              authNotice={authNotice}
             />
           </motion.div>
         )}
 
         {/* Keep the hub mounted behind games so the study timer and activity tracking keep running. */}
-        {state !== 'login' && currentUser && (
+        {state !== 'login' && state !== 'landing' && currentUser && (
           <motion.div 
             className="w-full flex justify-center"
             key="hub"
@@ -89,7 +164,7 @@ export default function App() {
                 clearAuthSession();
                 setCurrentUser(null);
                 setAuthToken(null);
-                toLogin();
+                toLanding();
               }}
               onPlay={startGame}
             />

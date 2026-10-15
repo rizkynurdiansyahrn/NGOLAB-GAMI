@@ -6,7 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 
 registerSW({
   onOfflineReady() {
-    console.log('Ngolab Gami offline ready');
+    if (import.meta.env.DEV) console.log('Ngolab Gami offline ready');
   },
 });
 

@@ -37,6 +37,7 @@ function studyCoachApiPlugin(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const membershipApiTarget = (env.VITE_API_BASE_URL || 'https://geasteats.ngolab.online').replace(/\/+$/, '');
+  const pointlabApiTarget = (env.VITE_POINTLAB_API_BASE_URL || 'https://point.ngolab.online').replace(/\/+$/, '');
 
   return {
     plugins: [
@@ -76,6 +77,18 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Pisahkan vendor besar agar bisa di-cache browser lebih lama.
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-dom/client'],
+            'motion-vendor': ['motion/react'],
+            'icons-vendor': ['lucide-react'],
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       strictPort: true,
@@ -87,6 +100,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
           rewrite: (requestPath) => requestPath.replace(/^\/membership-api/, ''),
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyRequest) => {
+              proxyRequest.removeHeader('origin');
+            });
+          },
+        },
+        '/pointlab-api': {
+          target: pointlabApiTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (requestPath) => requestPath.replace(/^\/pointlab-api/, ''),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyRequest) => {
               proxyRequest.removeHeader('origin');

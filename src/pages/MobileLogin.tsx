@@ -1,545 +1,111 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import {
-  User,
-  Lock,
-  Mail,
-  Phone,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Gamepad2,
-  Trophy,
-  Gift,
-  Zap,
-  ArrowLeft,
-} from "lucide-react";
-import { API_BASE_URL } from "../lib/api";
-import { normalizeUserProfile, type AuthSession } from "../lib/userProfile";
+import React from "react";
+import { ArrowLeft, LogIn, ShieldCheck } from "lucide-react";
+import { redirectToPointLabAuth, POINTLAB_AUTH_PAGE } from "../lib/pointlabSso";
 
-export default function MobileLogin({ onLogin }: { onLogin: (session: AuthSession) => void }) {
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [nama, setNama] = useState("");
-  const [phone, setPhone] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setIsLoading(true);
-
-    try {
-      const identifier = phone.trim();
-      const credentials = identifier.includes("@")
-        ? { email: identifier, password }
-        : { phone_number: identifier, password };
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setErrorMsg(data?.message || `Login gagal (HTTP ${response.status}).`);
-        return;
-      }
-
-      if (!data?.user?.id || typeof data.token !== "string") {
-        setErrorMsg("Respons login dari server tidak lengkap. Silakan coba lagi.");
-        return;
-      }
-
-      onLogin({
-        user: normalizeUserProfile(data.user),
-        token: data.token,
-      });
-    } catch (err) {
-      console.error("Gagal menghubungi API login:", err);
-      setErrorMsg("Tidak dapat terhubung ke server login. Periksa koneksi lalu coba lagi.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const registration = {
-      name: nama.trim(),
-      phone_number: phone.trim(),
-      email: email.trim(),
-      password,
-    };
-    if (!registration.name || !registration.phone_number || !registration.email || !password) return;
-
-    setErrorMsg("");
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registration),
-      });
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setErrorMsg(data?.message || `Pendaftaran gagal (HTTP ${response.status}).`);
-        return;
-      }
-
-      if (!data?.user?.id || typeof data.token !== "string") {
-        setErrorMsg("Respons pendaftaran dari server tidak lengkap. Silakan coba lagi.");
-        return;
-      }
-
-      const submittedProfile = normalizeUserProfile({
-        id: data.user.id,
-        name: registration.name,
-        email: registration.email,
-        phone: registration.phone_number,
-      });
-      onLogin({
-        user: normalizeUserProfile(data.user, submittedProfile),
-        token: data.token,
-      });
-    } catch (err) {
-      console.error("Gagal menghubungi API pendaftaran:", err);
-      setErrorMsg("Tidak dapat terhubung ke server pendaftaran. Periksa koneksi lalu coba lagi.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isLoginDisabled = !phone.trim() || !password;
+// Halaman autentikasi Ngolab-Gami TIDAK lagi memuat form login/daftar
+// tiruan. Ekosistem Ngolab memakai satu akun PointLab: pengguna dialihkan ke
+// halaman login/daftar RESMI PointLab, lalu kembali ke Ngolab-Gami dengan
+// token JWT valid pada fragment URL (#token=...) yang diverifikasi ke server.
+export default function MobileLogin({
+  initialTab = "login",
+  onBackHome,
+  authNotice = "",
+}: {
+  initialTab?: "login" | "register";
+  onBackHome: () => void;
+  authNotice?: string;
+}) {
+  const mode = initialTab === "register" ? "register" : "login";
 
   return (
-    <div className="flex min-h-screen w-full bg-[#F3F4F8] font-sans items-center justify-center p-3 sm:p-6 lg:p-10">
+    <div className="min-h-screen w-full flex justify-center bg-[#1A1B27] relative overflow-hidden">
+      <style>{`
+        @keyframes orb-float { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(18px,-24px) scale(1.06); } }
+        .sso-orb { position: absolute; border-radius: 9999px; filter: blur(70px); animation: orb-float 9s ease-in-out infinite; }
+      `}</style>
 
-      {/* ─── Split Card Container ─── */}
-      <div className="w-full max-w-5xl bg-white rounded-2xl sm:rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row">
+      {/* Ornamen latar */}
+      <div className="sso-orb w-72 h-72 bg-[#FF7A03]/25 -top-16 -right-12" />
+      <div className="sso-orb w-64 h-64 bg-indigo-500/20 bottom-0 -left-16" style={{ animationDelay: "1.5s" }} />
 
-        {/* ══════════════════════════════════════════
-            LEFT PANEL — dark poster / branding
-            Mobile: compact header strip (no scroll-heavy poster)
-        ══════════════════════════════════════════ */}
-        <div className="relative w-full md:w-1/2 bg-slate-950 text-white flex flex-col justify-between overflow-hidden min-h-[160px] md:min-h-full">
-          {/* Background & glow */}
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black" />
-          <img
-            src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1000&q=80"
-            alt="Gaming poster"
-            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-25"
-          />
-          <div className="absolute top-[-20%] right-[-20%] w-80 h-80 bg-[#FF5500]/25 blur-[120px] rounded-full pointer-events-none" />
+      <div className="relative z-10 w-full max-w-[400px] px-5 py-10 flex flex-col">
+        {/* Tombol kembali */}
+        <button
+          id="btn_back_home"
+          type="button"
+          onClick={onBackHome}
+          className="mb-8 inline-flex items-center gap-2 self-start rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-sm font-bold text-slate-300 backdrop-blur-md transition-colors hover:border-[#FF7A03]/40 hover:text-white"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Kembali ke beranda
+        </button>
 
-          {/* Mobile-compact: branding only on small screens */}
-          <div className="relative z-10 flex flex-col flex-1 p-5 md:p-10 gap-5 md:gap-8">
-            {/* Logo badge — always visible */}
-            <div className="inline-flex items-center gap-2.5 self-start bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
-              <div className="w-6 h-6 rounded-lg bg-[#FF5500] flex items-center justify-center">
-                <Gamepad2 className="w-3.5 h-3.5 text-white" />
-              </div>
-              <div>
-                <span className="text-xs font-black text-white tracking-wide block">NGOLAB-GAMI</span>
-                <span className="text-[8px] font-bold text-[#FF5500] tracking-widest uppercase block leading-none md:hidden">
-                  LEVEL UP
-                </span>
-              </div>
+        {/* Kartu informasi */}
+        <div
+          id="card_pointlab_redirect"
+          className="rounded-[20px] border border-white/10 bg-[rgba(30,41,59,0.65)] p-7 shadow-2xl backdrop-blur-[20px]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF7A03] to-[#e66a00] shadow-lg shadow-[#FF7A03]/30">
+              <LogIn className="w-6 h-6 text-white" />
             </div>
-
-            {/* Full poster content — hidden on mobile, shown md+ */}
-            <AnimatePresence mode="wait">
-              {activeTab === "login" ? (
-                <motion.div
-                  key="left-login"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.25 }}
-                  className="hidden md:flex flex-col gap-5"
-                >
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-                    Main. Menang. <br />
-                    <span className="text-[#FF5500]">Dapatkan Reward!</span>
-                  </h2>
-                  <p className="text-slate-300 text-sm font-medium leading-relaxed max-w-sm">
-                    Platform gaming &amp; e-sports arena kampus pertama di Indonesia. Ubah skor tinggimu menjadi voucher di kantin favoritmu.
-                  </p>
-                  <div className="flex items-center gap-6 pt-4 border-t border-white/10">
-                    <div>
-                      <h4 className="text-2xl font-black text-[#FF5500]">10K+</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PEMAIN AKTIF</p>
-                    </div>
-                    <div className="w-px h-8 bg-white/10" />
-                    <div>
-                      <h4 className="text-2xl font-black text-[#FF5500]">50+</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PARTNER KANTIN</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="left-register"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.25 }}
-                  className="hidden md:flex flex-col gap-5"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-[#FF5500]/20 border border-[#FF5500]/30 flex items-center justify-center text-[#FF5500]">
-                    <Gamepad2 className="w-6 h-6" />
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-                    Mainkan Game, <br />
-                    <span className="text-[#FF5500]">Dapatkan Reward!</span>
-                  </h2>
-                  <p className="text-slate-300 text-sm font-medium leading-relaxed">
-                    Bergabunglah dengan ribuan mahasiswa di NGOLAB-GAMI. Kumpulkan poin dan tukarkan dengan voucher F&amp;B favoritmu.
-                  </p>
-                  <div className="space-y-3">
-                    {[
-                      { icon: <Zap className="w-4 h-4" />, title: "kompetisi harian", desc: "Turnamen arcade setiap hari" },
-                      { icon: <Gift className="w-4 h-4" />, title: "loyalty reward", desc: "Tukar poin dengan Kopi & Burger" },
-                      { icon: <Trophy className="w-4 h-4" />, title: "leaderboard kampus", desc: "Jadilah pemain nomor satu" },
-                    ].map((f) => (
-                      <div key={f.title} className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">
-                        <div className="w-8 h-8 rounded-xl bg-[#FF5500] flex items-center justify-center text-white shrink-0">
-                          {f.icon}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">{f.title}</h4>
-                          <p className="text-[11px] text-slate-400">{f.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Mobile hero — compact tagline, hidden md+ */}
-            <div className="md:hidden mt-1">
-              {activeTab === "login" ? (
-                <h2 className="text-xl font-black text-white tracking-tight leading-tight">
-                  Main. Menang. <span className="text-[#FF5500]">Reward!</span>
-                </h2>
-              ) : (
-                <h2 className="text-xl font-black text-white tracking-tight leading-tight">
-                  Daftar & <span className="text-[#FF5500]">Mulai Main!</span>
-                </h2>
-              )}
+            <div>
+              <p className="text-lg font-black tracking-wide text-white">
+                Point<span className="text-[#FF7A03]">Lab</span>
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Satu akun, satu ekosistem
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* ══════════════════════════════════════════
-            RIGHT PANEL — white form area
-        ══════════════════════════════════════════ */}
-        <div className="w-full md:w-1/2 bg-white flex flex-col">
-          <div className="flex-1 flex flex-col justify-center p-5 sm:p-8 md:p-10 overflow-y-auto">
-            <AnimatePresence mode="wait">
+          <h1 className="mt-6 text-xl font-black tracking-tight text-white">
+            {mode === "register" ? "Daftar akun PointLab" : "Masuk dengan akun PointLab"}
+          </h1>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-300">
+            Ngolab-Gami memakai akun membership PointLab. Login dan pendaftaran
+            dilakukan di halaman <span className="font-bold text-white">resmi PointLab</span>.
+            Setelah berhasil, kamu otomatis kembali ke Ngolab-Gami beserta
+            saldo poin dan profilmu.
+          </p>
 
-              {/* ── LOGIN FORM ── */}
-              {activeTab === "login" && (
-                <motion.div
-                  key="form-login"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.22 }}
-                  className="flex flex-col gap-5"
-                >
-                  {/* Heading */}
-                  <div>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Masuk Akun</h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
-                      Selamat datang kembali, Gamer!
-                    </p>
-                  </div>
-
-                  {/* Form */}
-                  <form onSubmit={handleLogin} className="flex flex-col gap-3.5">
-                    {/* Email / Phone */}
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
-                        EMAIL ATAU NOMOR HP
-                      </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          id="input_phone_login"
-                          type="text"
-                          placeholder="nama@kampus.ac.id atau 08..."
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <div className="flex justify-between items-center mb-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                          KATA SANDI
-                        </label>
-                        <button type="button" className="text-[11px] font-bold text-[#FF5500] hover:underline">
-                          Lupa Sandi?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          id="input_password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-10 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Error */}
-                    {errorMsg && (
-                      <div id="div_errormsg" className="text-red-600 text-xs font-semibold text-center bg-red-50 p-3 rounded-xl border border-red-200">
-                        {errorMsg}
-                      </div>
-                    )}
-
-                    {/* Submit */}
-                    <button
-                      id="btn_masuk"
-                      type="submit"
-                      disabled={isLoginDisabled || isLoading}
-                      className="w-full bg-[#FF5500] hover:bg-[#e64d00] text-white font-extrabold text-sm uppercase tracking-wider py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#FF5500]/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? "Memproses..." : "MASUK SEKARANG"}
-                      {!isLoading && <ArrowRight className="w-4 h-4" />}
-                    </button>
-                  </form>
-
-                  {/* Register link */}
-                  <p className="text-center text-sm text-slate-500 font-medium">
-                    Belum punya akun?{" "}
-                    <button
-                      id="btn_tab_daftar"
-                      type="button"
-                      onClick={() => { setActiveTab("register"); setErrorMsg(""); }}
-                      className="text-[#FF5500] font-bold hover:underline"
-                    >
-                      Daftar Sekarang
-                    </button>
-                  </p>
-                </motion.div>
-              )}
-
-              {/* ── REGISTER FORM ── */}
-              {activeTab === "register" && (
-                <motion.div
-                  key="form-register"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.22 }}
-                  className="flex flex-col gap-4"
-                >
-                  {/* Back link */}
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab("login"); setErrorMsg(""); }}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 self-start transition-colors"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" /> Kembali ke Login
-                  </button>
-
-                  {/* Heading */}
-                  <div>
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Daftar Akun Baru</h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium leading-relaxed">
-                      Lengkapi data untuk mulai berpetualang.
-                    </p>
-                  </div>
-
-                  {/* Form */}
-                  <form onSubmit={handleRegister} className="flex flex-col gap-3">
-                    {/* Nama */}
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                        NAMA LENGKAP
-                      </label>
-                      <div className="relative">
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          id="input_register_nama"
-                          type="text"
-                          placeholder="Masukkan nama lengkap"
-                          value={nama}
-                          onChange={(e) => setNama(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Username + Email (2-col) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                          USERNAME
-                        </label>
-                        <div className="relative">
-                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            id="input_register_phone"
-                            type="text"
-                            placeholder="GamerID"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                          EMAIL KAMPUS
-                        </label>
-                        <div className="relative">
-                          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            id="input_register_email"
-                            type="email"
-                            placeholder="mhs@univ.ac.id"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                        KATA SANDI
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          id="input_register_password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Confirm Password */}
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                        KONFIRMASI KATA SANDI
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#FF5500] focus:ring-2 focus:ring-[#FF5500]/20 focus:bg-white transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Terms checkbox */}
-                    <div className="flex items-start gap-2.5 pt-1">
-                      <input
-                        type="checkbox"
-                        id="terms"
-                        checked={agreeTerms}
-                        onChange={(e) => setAgreeTerms(e.target.checked)}
-                        className="mt-0.5 rounded border-slate-300 accent-[#FF5500]"
-                      />
-                      <label htmlFor="terms" className="text-[11px] text-slate-500 leading-tight cursor-pointer">
-                        Saya menyetujui{" "}
-                        <span className="text-[#FF5500] font-bold">Syarat &amp; Ketentuan</span> serta{" "}
-                        <span className="text-[#FF5500] font-bold">Kebijakan Privasi</span> NGOLAB-GAMI.
-                      </label>
-                    </div>
-
-                    {/* Error */}
-                    {errorMsg && (
-                      <div id="div_errormsg" className="text-red-600 text-xs font-semibold text-center bg-red-50 p-3 rounded-xl border border-red-200">
-                        {errorMsg}
-                      </div>
-                    )}
-
-                    {/* Submit */}
-                    <button
-                      id="btn_daftar_sekarang"
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full bg-[#FF5500] hover:bg-[#e64d00] text-white font-extrabold text-sm uppercase tracking-wider py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#FF5500]/30 active:scale-[0.98] disabled:opacity-50"
-                    >
-                      {isLoading ? "Mendaftar..." : "DAFTAR SEKARANG"}
-                      {!isLoading && <ArrowRight className="w-4 h-4" />}
-                    </button>
-                  </form>
-
-                  {/* Login link */}
-                  <p className="text-center text-sm text-slate-500 font-medium">
-                    Sudah punya akun?{" "}
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab("login"); setErrorMsg(""); }}
-                      className="text-[#FF5500] font-bold hover:underline"
-                    >
-                      Masuk di sini
-                    </button>
-                  </p>
-
-                </motion.div>
-              )}
-
-            </AnimatePresence>
-          </div>
-
-          {/* Footer */}
-          <div className="px-5 sm:px-8 md:px-10 py-3 border-t border-slate-100 text-center space-y-0.5">
-            <div className="flex justify-center items-center gap-2 text-[10px] font-bold text-slate-400 tracking-wider">
-              <span>SYARAT &amp; KETENTUAN</span>
-              <span>•</span>
-              <span>KEBIJAKAN PRIVASI</span>
+          {authNotice && (
+            <div
+              id="auth_notice"
+              role="alert"
+              className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs font-semibold leading-relaxed text-red-200"
+            >
+              {authNotice}
             </div>
-            <p className="text-[9px] font-semibold text-slate-400">
-              © 2024 NGOLAB-GAMI TEAM, INDONESIA.
+          )}
+
+          <button
+            id="btn_login_pointlab"
+            type="button"
+            onClick={() => redirectToPointLabAuth(mode)}
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#FF7A03] to-[#e66a00] px-5 py-3.5 text-sm font-extrabold uppercase tracking-wider text-white shadow-lg shadow-[#FF7A03]/30 transition-all hover:brightness-110 active:scale-[0.98]"
+          >
+            <LogIn className="w-4 h-4" />
+            {mode === "register" ? "Lanjut ke pendaftaran PointLab" : "Lanjut ke login PointLab"}
+          </button>
+
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-white/5 px-3.5 py-3">
+            <ShieldCheck className="mt-0.5 w-4 h-4 shrink-0 text-emerald-400" />
+            <p className="text-[11px] font-medium leading-relaxed text-slate-300">
+              Kredensial hanya dimasukkan di PointLab. Ngolab-Gami menerima
+              token sesi yang diverifikasi ke server, tanpa pernah melihat
+              password-mu.
             </p>
           </div>
         </div>
-        {/* ── end RIGHT PANEL ── */}
 
+        <p className="mt-6 text-center text-[11px] font-semibold text-slate-500">
+          Halaman login: <span className="text-slate-400">{POINTLAB_AUTH_PAGE}</span>
+        </p>
+        <p className="mt-1 text-center text-[10px] font-semibold text-slate-600">
+          © 2026 PointLab by NgoLab
+        </p>
       </div>
-      {/* ── end Split Card ── */}
-
     </div>
   );
 }

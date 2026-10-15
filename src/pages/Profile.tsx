@@ -123,7 +123,7 @@ export default function Profile({ user, onEdit, onLogout }: ProfileProps) {
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><Coins className="h-5 w-5" /></div>
             <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.14em] text-[#FF5500]">Koleksi reward</p>
             <h3 className="mt-1 text-lg font-black text-slate-900">{user.pointsAvailable === false ? "Saldo poin belum tersedia" : `${user.points.toLocaleString()} poin tersedia`}</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">Tukarkan poin yang kamu kumpulkan dengan voucher dari rekan NGOLAB di halaman <span className="font-bold text-slate-700">Voucher Teman</span>.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">Tukarkan poin yang kamu kumpulkan dengan voucher di halaman penukaran <span className="font-bold text-slate-700">PoinLab</span>.</p>
             {VOUCHER_URL ? (
               <a
                 id="btn_voucher_teman"
@@ -133,7 +133,7 @@ export default function Profile({ user, onEdit, onLogout }: ProfileProps) {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FF5500] px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-[#e64c00] focus:outline-none focus:ring-2 focus:ring-orange-400"
               >
                 <Gift className="h-4 w-4" />
-                Buka Voucher Teman
+                Tukarkan Poin
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             ) : (
@@ -145,7 +145,7 @@ export default function Profile({ user, onEdit, onLogout }: ProfileProps) {
                 className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-xs font-black text-[#FF5500] opacity-70"
               >
                 <Gift className="h-4 w-4" />
-                Voucher Teman (segera)
+                Tukarkan Poin (segera)
               </button>
             )}
             <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">{VOUCHER_URL ? "Halaman voucher dibuka di tab baru." : VOUCHER_HINT}</p>

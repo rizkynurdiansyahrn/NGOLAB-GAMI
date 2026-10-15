@@ -32,7 +32,7 @@ import {
   type StudySource,
   type StudyCitation,
 } from "../lib/studyNotebook";
-import { fetchWithRetry } from "../lib/studyCoachFetch";
+import { fetchWithRetry, studyCoachHeaders } from "../lib/studyCoachFetch";
 
 interface AIStudyCoachProps {
   taskTitle?: string;
@@ -271,7 +271,7 @@ export default function AIStudyCoach({
         // percobaan ulang otomatis yang sama seperti pengiriman pertanyaan.
         const response = await fetchWithRetry(
           "/api/study-coach/sources/file",
-          { method: "POST", body },
+          { method: "POST", body, headers: studyCoachHeaders() },
           {
             attempts: 2,
             timeoutMs: 90_000,
@@ -388,7 +388,7 @@ export default function AIStudyCoach({
         "/api/study-coach",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: studyCoachHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             message,
             taskTitle: taskTitle ?? "",

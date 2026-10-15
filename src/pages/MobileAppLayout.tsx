@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { lazy, Suspense, useState, useEffect, useCallback } from "react";
 import {
   Home,
   User,
   Gamepad2,
   BookOpen,
+  Gift,
 } from "lucide-react";
 import MobileDashboard from "./MobileDashboard";
 import Library from "./Library";
 import GameDetail from "./GameDetail";
 import MobileLeaderboard from "./MobileLeaderboard";
 import MobilePatungan from "./MobilePatungan";
-import MobileStudyTracker from "./MobileStudyTracker";
+// Gami Study (termasuk AI Study Coach) dimuat terpisah agar bundel awal ringan.
+const MobileStudyTracker = lazy(() => import("./MobileStudyTracker"));
 import Profile from "./Profile";
 import Achievement from "./Achievement";
 import Notifications from "./Notifications";
@@ -18,8 +20,16 @@ import SettingsPage from "./Settings";
 import { AppUser } from "../data/appData";
 import { Game } from "../data/dummyData";
 import EditProfileModal from "../components/EditProfileModal";
-import { API_BASE_URL } from "../lib/api";
+import { API_BASE_URL, IDENTITY_API_BASE_URL, IDENTITY_PROVIDER } from "../lib/api";
+import {
+  memberIdFromProfileUser,
+  profileFetchPath,
+  profileUpdateBody,
+  profileUpdatePath,
+  profileUserMatches,
+} from "../lib/identity";
 import { getLoyaltyBalance } from "../lib/pointlab";
+import { VOUCHER_URL } from "../lib/voucherLink";
 import { normalizeUserProfile } from "../lib/userProfile";
 import {
   buildProfileUpdatePayload,
@@ -71,14 +81,14 @@ export default function MobileAppLayout({
   const refreshUserProfile = useCallback(async (signal?: AbortSignal) => {
     if (!userId || !accessToken) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/recommendations`, {
+      const response = await fetch(`${IDENTITY_API_BASE_URL}${profileFetchPath(IDENTITY_PROVIDER, userId)}`, {
         cache: 'no-store',
         headers: { Authorization: `Bearer ${accessToken}` },
         signal,
       });
       if (!response.ok) throw new Error(`Profile request failed: ${response.status}`);
       const data = await response.json();
-      if (!data.user || String(data.user.id) !== userId) throw new Error("Invalid profile response");
+      if (!profileUserMatches(IDENTITY_PROVIDER, data, userId)) throw new Error("Invalid profile response");
       if (signal?.aborted) return;
       setUser((previous) =>
         mergeProfileFallback(normalizeUserProfile(data.user, previous), readProfileFallback(userId))
@@ -86,9 +96,7 @@ export default function MobileAppLayout({
       setProfileError("");
       // Saldo resmi Loyalty Points (loyalty_accounts.current_points) menimpa
       // angka dari profil biasa bila member & token tersedia.
-      const memberId = typeof data.user.memberId === "string" || typeof data.user.member_id === "string"
-        ? String(data.user.memberId ?? data.user.member_id)
-        : user?.memberId ?? null;
+      const memberId = memberIdFromProfileUser(IDENTITY_PROVIDER, data) ?? user?.memberId ?? null;
       if (memberId && accessToken) {
         try {
           const balance = await getLoyaltyBalance(memberId, accessToken, signal);
@@ -100,7 +108,7 @@ export default function MobileAppLayout({
       }
     } catch (err) {
       if (signal?.aborted) return;
-      console.warn("Gagal memperbarui profil:", err);
+      if (import.meta.env.DEV) console.warn("Gagal memperbarui profil:", err);
       setProfileError("Profil belum dapat diperbarui. Data akun terakhir tetap ditampilkan.");
     }
   }, [userId, accessToken]);
@@ -133,6 +141,7 @@ export default function MobileAppLayout({
             onPlay={onPlay}
             onSelectDetail={handleSelectDetail}
             onOpenProfile={() => setActiveTab("profile")}
+            onOpenLeaderboard={() => setActiveTab("leaderboard")}
             onLogout={onLogout}
             onRefreshUser={refreshUserProfile}
             onSeeAll={() => setActiveTab("library")}
@@ -157,7 +166,7 @@ export default function MobileAppLayout({
             onLogout={onLogout}
           />
         )}
-        {activeTab === "leaderboard" && <MobileLeaderboard user={user} />}
+        {activeTab === "leaderboard" && <MobileLeaderboard user={user} onBack={() => setActiveTab("home")} />}
         {activeTab === "profile" && (
           <Profile
             user={user}
@@ -171,7 +180,19 @@ export default function MobileAppLayout({
         {activeTab === "patungan" && <MobilePatungan userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
         {hasOpenedStudy && (
           <div className={activeTab === "study" ? "block" : "hidden"} aria-hidden={activeTab !== "study"}>
-            <MobileStudyTracker userId={userId} user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
+            <Suspense
+              fallback={
+                <div className="flex min-h-[60vh] items-center justify-center">
+                  <span
+                    role="status"
+                    aria-label="Memuat Gami Study"
+                    className="h-10 w-10 animate-spin rounded-full border-3 border-slate-200 border-t-[#FF5500]"
+                  />
+                </div>
+              }
+            >
+              <MobileStudyTracker userId={userId} user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
+            </Suspense>
           </div>
         )}
       </div>
@@ -204,6 +225,18 @@ export default function MobileAppLayout({
             label="Gami-Study"
           />
           <NavButton
+            id="tab_voucher"
+            active={false}
+            onClick={() => {
+              // Penukaran voucher/reward dikelola PoinLab: tab ini berpindah
+              // ke halaman redeem PoinLab (sesi SSO PoinLab sudah terbentuk
+              // saat login, jadi user langsung melihat halaman penukaran).
+              if (VOUCHER_URL) window.location.href = VOUCHER_URL;
+            }}
+            icon={<Gift className="w-5 h-5" />}
+            label="Voucher"
+          />
+          <NavButton
             active={activeTab === "profile"}
             onClick={() => setActiveTab("profile")}
             icon={<User className="w-5 h-5" />}
@@ -219,17 +252,24 @@ export default function MobileAppLayout({
             onClose={() => setIsEditProfileOpen(false)}
             onSave={async (updatedUser) => {
               if (!userId || !accessToken) throw new Error("Silakan masuk kembali sebelum mengubah profil.");
-              const payload = buildProfileUpdatePayload({
-                userId,
-                name: updatedUser.name,
-                phone: updatedUser.phone,
-                avatar: updatedUser.avatar,
-              });
+              const payload = IDENTITY_PROVIDER === "pointlab"
+                ? profileUpdateBody(IDENTITY_PROVIDER, {
+                  userId,
+                  name: updatedUser.name,
+                  phone: updatedUser.phone,
+                  avatar: updatedUser.avatar,
+                })
+                : buildProfileUpdatePayload({
+                  userId,
+                  name: updatedUser.name,
+                  phone: updatedUser.phone,
+                  avatar: updatedUser.avatar,
+                });
               let sync: "synced" | "local" = "local";
               let fatalError: Error | null = null;
               let serverUser: unknown = null;
               try {
-                const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                const response = await fetch(`${IDENTITY_API_BASE_URL}${profileUpdatePath(IDENTITY_PROVIDER, userId)}`, {
                   method: "PUT",
                   headers: {
                     "Content-Type": "application/json",
@@ -239,7 +279,7 @@ export default function MobileAppLayout({
                 });
                 const data = await response.json().catch(() => null);
                 if (response.ok) {
-                  if (!data?.user || String(data.user.id) !== userId) {
+                  if (!profileUserMatches(IDENTITY_PROVIDER, data, userId)) {
                     fatalError = new Error("Data profil hasil penyimpanan belum tersedia.");
                   } else {
                     serverUser = data.user;
@@ -249,7 +289,7 @@ export default function MobileAppLayout({
                   // Server belum mengizinkan akun ini mengubah profil — simpan di perangkat.
                   sync = "local";
                 } else {
-                  fatalError = new Error(data?.message || "Perubahan profil belum dapat disimpan.");
+                  fatalError = new Error(data?.error || data?.message || "Perubahan profil belum dapat disimpan.");
                 }
               } catch {
                 // Jaringan gagal — simpan di perangkat agar perubahan tidak hilang.

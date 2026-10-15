@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import {
   MAX_FILE_BYTES,
   MAX_QUESTION_CHARACTERS,
@@ -20,6 +20,32 @@ export function createStudyCoachApp(env = process.env) {
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: "2mb" }));
+
+  // Token bersama untuk melindungi endpoint Study Coach dari pemakaian liar
+  // (kuota RAG berbayar). Diambil dari STUDY_COACH_TOKEN di .env; kalau belum
+  // diisi, endpoint tetap terbuka TAPI server memberi peringatan di log.
+  const studyCoachToken = String(env.STUDY_COACH_TOKEN || "").trim();
+  if (!studyCoachToken) {
+    console.warn(
+      "STUDY_COACH_TOKEN belum diisi: endpoint /api/study-coach berjalan TANPA autentikasi. Isi token di .env agar kuota RAG tidak bisa dipakai orang lain.",
+    );
+  }
+
+  function tokensMatch(provided, expected) {
+    const a = Buffer.from(String(provided));
+    const b = Buffer.from(String(expected));
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  }
+
+  function studyCoachAuth(req, res, next) {
+    if (!studyCoachToken) return next();
+    const provided =
+      req.get("x-study-coach-token") ||
+      (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    if (provided && tokensMatch(provided, studyCoachToken)) return next();
+    res.status(401).json({ error: "Token Study Coach tidak valid." });
+  }
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -72,6 +98,7 @@ export function createStudyCoachApp(env = process.env) {
 
   app.post(
     "/api/study-coach/sources/file",
+    studyCoachAuth,
     studyCoachRateLimit,
     (req, res, next) => {
       upload.single("file")(req, res, async (error) => {
@@ -112,7 +139,7 @@ export function createStudyCoachApp(env = process.env) {
     },
   );
 
-  app.post("/api/study-coach", studyCoachRateLimit, async (req, res) => {
+  app.post("/api/study-coach", studyCoachAuth, studyCoachRateLimit, async (req, res) => {
     let sources;
     try {
       sources = validateSources(req.body?.sources);

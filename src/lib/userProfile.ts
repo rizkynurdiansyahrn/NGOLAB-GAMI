@@ -48,7 +48,7 @@ export function avatarUrlForApi(avatar: string, userId: string): string {
 export function normalizeUserProfile(value: unknown, previous?: AppUser): AppUser {
   const data = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const id = data.id !== undefined && data.id !== null ? String(data.id) : previous?.id ?? "";
-  const points = nonNegativeNumber(data.currentPoints ?? data.points, Number.NaN);
+  const points = nonNegativeNumber(data.currentPoints ?? data.points ?? data.poin, Number.NaN);
   const rank = nonNegativeNumber(data.rank, previous?.rank ?? 0);
 
   return {

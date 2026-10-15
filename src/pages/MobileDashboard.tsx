@@ -22,6 +22,7 @@ interface MobileDashboardProps {
   onPlay: (gameId: string) => void;
   onSelectDetail?: (game: Game) => void;
   onOpenProfile?: () => void;
+  onOpenLeaderboard?: () => void;
   onLogout?: () => void;
   onRefreshUser?: () => void;
   onSeeAll?: () => void;
@@ -32,6 +33,7 @@ export default function MobileDashboard({
   onPlay,
   onSelectDetail,
   onOpenProfile,
+  onOpenLeaderboard,
   onLogout,
   onSeeAll,
 }: MobileDashboardProps) {
@@ -132,22 +134,46 @@ export default function MobileDashboard({
         </div>
 
         {/* Stat 2: Peringkat */}
-        <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-orange-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">
-          <div className="flex justify-between items-start mb-3">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-              PERINGKAT
-            </span>
-            <Trophy className="w-5 h-5 text-[#FF5500]" />
+        {onOpenLeaderboard ? (
+          <button
+            id="btn_stat_peringkat"
+            type="button"
+            onClick={onOpenLeaderboard}
+            className="group relative flex w-full flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-orange-50 p-4 text-left shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                PERINGKAT
+              </span>
+              <Trophy className="w-5 h-5 text-[#FF5500]" />
+            </div>
+            <div>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
+                {user.rank ? `#${user.rank}` : "—"}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {user.rank ? "Peringkat pemain · lihat papan skor" : "Peringkat poin belum tersedia"}
+              </p>
+            </div>
+          </button>
+        ) : (
+          <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-orange-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                PERINGKAT
+              </span>
+              <Trophy className="w-5 h-5 text-[#FF5500]" />
+            </div>
+            <div>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
+                {user.rank ? `#${user.rank}` : "—"}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {user.rank ? "Peringkat pemain" : "Peringkat poin belum tersedia"}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
-              {user.rank ? `#${user.rank}` : "—"}
-            </h3>
-            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-              {user.rank ? "Peringkat pemain" : "Peringkat poin belum tersedia"}
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Stat 3: Game Dimainkan */}
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-indigo-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">

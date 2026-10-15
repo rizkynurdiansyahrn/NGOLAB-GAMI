@@ -13,7 +13,7 @@
 
 @layer base {
   body {
-    @apply bg-[#F3F4F8] text-slate-900 antialiased select-none;
+    @apply bg-[#F3F4F8] text-slate-900 antialiased;
     overflow-x: hidden;
   }
 }

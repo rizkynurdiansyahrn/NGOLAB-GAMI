@@ -35,6 +35,20 @@ export interface FetchRetryOptions {
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 502, 503, 504]);
 const RETRY_WAITS_MS = [2_000, 6_000, 15_000];
 
+/**
+ * Header bawaan untuk permintaan Study Coach. Server menolak permintaan tanpa
+ * token (header x-study-coach-token) ketika STUDY_COACH_TOKEN aktif di server,
+ * sehingga kuota RAG berbayar tidak bisa dipakai orang lain.
+ */
+export function studyCoachHeaders(
+  extra: Record<string, string> = {},
+): Record<string, string> {
+  const token = import.meta.env?.VITE_STUDY_COACH_TOKEN;
+  return typeof token === "string" && token.trim()
+    ? { ...extra, "x-study-coach-token": token.trim() }
+    : extra;
+}
+
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {

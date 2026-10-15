@@ -30,11 +30,11 @@ check("catch skor 999 tetap 10 (bukan 99)", pointsForScore(999, 'ngolab-catch') 
 console.log("[2] Target berbeda tiap game");
 check("quiz target 60", getGameTarget('ngolab-fitness-quiz').targetScore === 60);
 check("memory target 50", getGameTarget('ngolab-memory').targetScore === 50);
-check("doodle-road target 100", getGameTarget('ngolab-doodle-road').targetScore === 100);
+check("traffic-escape target 100", getGameTarget('ngolab-traffic-escape').targetScore === 100);
 check("neon-merge target 80", getGameTarget('ngolab-neon-merge').targetScore === 80);
 check("glow-trail target 50", getGameTarget('ngolab-glow-trail').targetScore === 50);
 check("semua game punya label target", [
-  'ngolab-catch', 'ngolab-memory', 'ngolab-burger', 'ngolab-doodle-road',
+  'ngolab-catch', 'ngolab-memory', 'ngolab-burger', 'ngolab-traffic-escape',
   'ngolab-fitness-quiz', 'ngolab-astro-drift', 'ngolab-beat-bounce',
   'ngolab-neon-merge', 'ngolab-glow-trail', 'ngolab-sky-swipe', 'ngolab-neon-slither',
 ].every((id) => getGameTarget(id).targetLabel.length > 0));

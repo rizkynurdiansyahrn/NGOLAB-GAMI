@@ -17,7 +17,7 @@ const GAME_TARGETS: Record<string, GameTarget> = {
   'ngolab-catch': { targetScore: 150, targetLabel: 'Tangkap 15 item' },
   'ngolab-memory': { targetScore: 50, targetLabel: 'Temukan 5 pasangan kartu' },
   'ngolab-burger': { targetScore: 100, targetLabel: 'Kumpulkan skor 100' },
-  'ngolab-doodle-road': { targetScore: 100, targetLabel: 'Selesaikan level pertama' },
+  'ngolab-traffic-escape': { targetScore: 100, targetLabel: 'Selesaikan level pertama' },
   'ngolab-fitness-quiz': { targetScore: 60, targetLabel: 'Jawab benar 6 dari 10 soal' },
   'ngolab-astro-drift': { targetScore: 100, targetLabel: 'Hantam 4 target' },
   'ngolab-beat-bounce': { targetScore: 100, targetLabel: 'Kumpulkan skor 100' },
