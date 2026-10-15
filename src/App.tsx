@@ -143,6 +143,15 @@ export default function App() {
               initialTab={authTab}
               onBackHome={toLanding}
               authNotice={authNotice}
+              onAuthenticated={(session) => {
+                // Login/daftar langsung berhasil lewat API PoinLab:
+                // simpan sesi dan buka hub seperti alur redirect SSO.
+                saveAuthSession(session);
+                setCurrentUser(session.user);
+                setAuthToken(session.token);
+                setAuthNotice('');
+                toHub();
+              }}
             />
           </motion.div>
         )}
