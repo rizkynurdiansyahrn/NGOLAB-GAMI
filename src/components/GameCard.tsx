@@ -68,8 +68,16 @@ export default function GameCard({
         )}
 
         {/* Play overlay on hover */}
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-          <div className="w-8 h-8 rounded-full bg-[#FF5500] text-white flex items-center justify-center shadow-md shadow-[#FF5500]/40 transform group-hover:scale-110 transition-transform duration-200">
+        <div 
+          onClick={(e) => {
+            if (onPlay) {
+              e.stopPropagation();
+              onPlay(game.id);
+            }
+          }}
+          className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
+        >
+          <div className="w-8 h-8 rounded-full bg-[#FF5500] text-white flex items-center justify-center shadow-md shadow-[#FF5500]/40 transform group-hover:scale-110 transition-transform duration-200 cursor-pointer">
             <Play className="w-3.5 h-3.5 fill-white translate-x-0.5" />
           </div>
         </div>

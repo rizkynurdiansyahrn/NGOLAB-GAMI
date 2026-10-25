@@ -57,6 +57,7 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
   const target = getGameTarget(gameId);
   const [gameOverData, setGameOverData] = useState<{ score: number; points: number; sync: 'pending' | 'synced' | 'failed' | 'capped' | 'target'; capReason: CapReason | null;
     targetReached: boolean } | null>(null);
+  const [replayKey, setReplayKey] = useState(0);
 
   const latestScoreRef = useRef(0);
 
@@ -120,15 +121,22 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
     void finishSession(score);
   };
 
-  // Pemain menekan close/keluar dari dalam game: sesi dinilai dari skor terkini,
-  // ringkasan tetap ditampilkan (poin diberikan kalau target sudah tercapai).
+  // Pemain menekan close/keluar dari dalam game: selalu kembali ke hub game
   const handleExit = () => {
-    void finishSession(latestScoreRef.current);
+    if (isTargetReached(latestScoreRef.current, gameId)) {
+      void finishSession(latestScoreRef.current);
+    }
+    setGameOverData(null);
+    onClose();
   };
 
-  // Tombol kembali/close di header container: sama seperti keluar dari dalam game.
+  // Tombol kembali/close di header container: selalu kembali ke hub game
   const handleCloseRequest = () => {
-    void finishSession(latestScoreRef.current);
+    if (isTargetReached(latestScoreRef.current, gameId)) {
+      void finishSession(latestScoreRef.current);
+    }
+    setGameOverData(null);
+    onClose();
   };
 
   const renderGame = () => {
@@ -154,18 +162,18 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
 
   return (
     <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-0 w-auto max-w-none flex-col overflow-hidden bg-black font-sans">
-      {/* Top Header */}
-      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm flex items-start justify-between px-4 pt-4 z-30 pointer-events-none">
+      {/* Top Header - Always highest z-index so back/close can always be clicked */}
+      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm flex items-start justify-between px-4 pt-4 z-[120] pointer-events-none">
         
         <div className="flex items-center gap-3 pointer-events-auto">
           <button
             type="button"
             aria-label="Kembali ke halaman sebelumnya"
-            title="Kembali"
+            title="Kembali ke Hub Game"
             onClick={handleCloseRequest}
-            className="w-10 h-10 shrink-0 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg"
+            className="w-10 h-10 shrink-0 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg cursor-pointer"
           >
-            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+            <ArrowLeft className="w-5 h-5 pointer-events-none" aria-hidden="true" />
           </button>
           <div className="w-12 h-12 rounded-xl bg-gray-900/80 overflow-hidden border border-white/10 p-0.5 shadow-lg backdrop-blur-md">
             <img src={game.thumbnail} alt={game.title} loading="lazy" className="w-full h-full object-cover rounded-[10px]" referrerPolicy="no-referrer" />
@@ -180,17 +188,17 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
         <div className="flex items-center gap-2 pointer-events-auto">
           <button 
             type="button"
-            title="Close game"
+            title="Keluar dari Game"
             onClick={handleCloseRequest}
-            className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg"
+            className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors shadow-lg cursor-pointer"
           >
             <X className="w-5 h-5 pointer-events-none" />
           </button>
         </div>
       </div>
 
-      {/* Game Content */}
-      <div className="absolute inset-x-0 bottom-0 top-20 overflow-hidden bg-black">
+      {/* Game Content - Resetting key forces full remount on replay */}
+      <div key={replayKey} className="absolute inset-x-0 bottom-0 top-20 overflow-hidden bg-black">
         {renderGame()}
       </div>
 
@@ -272,10 +280,14 @@ export default function GameContainerMobile({ userId, gameId, memberId, accessTo
               <div className="mt-5 flex flex-col gap-2.5 min-[420px]:flex-row sm:mt-6">
                 <button
                   type="button"
-                  onClick={() => setGameOverData(null)}
+                  onClick={() => {
+                    setGameOverData(null);
+                    setReplayKey(prev => prev + 1);
+                    latestScoreRef.current = 0;
+                  }}
                   className="min-h-12 rounded-2xl bg-gradient-to-r from-[#ff9c24] to-[#f47717] px-5 py-3 text-sm font-extrabold text-[#2f2118] shadow-[0_7px_18px_rgba(225,113,25,0.2)] transition hover:brightness-105 active:scale-[0.98]"
                 >
-                  Lihat Rapor Skor
+                  Main Lagi
                 </button>
                 <button
                   type="button"

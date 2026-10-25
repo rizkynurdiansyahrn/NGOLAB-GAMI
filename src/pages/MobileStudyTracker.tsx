@@ -485,6 +485,19 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
     setTaskError("");
   };
 
+  const toggleTaskCompletion = (taskId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setTasks((currentTasks) =>
+      currentTasks.map((t) => {
+        if (t.id === taskId) {
+          const nextStatus = t.status === "completed" ? "todo" : "completed";
+          return { ...t, status: nextStatus };
+        }
+        return t;
+      })
+    );
+  };
+
   const startSession = () => {
     if (!isRewardBudgetReady) {
       setTaskError("Sedang memuat limit reward. Coba mulai lagi sebentar.");
@@ -761,23 +774,52 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                     const isSelected = selectedTaskId === task.id;
                     const isCompleted = task.status === "completed";
                     return (
-                      <button
+                      <div
                         key={task.id}
-                        type="button"
-                        disabled={isCompleted}
-                        onClick={() => { setSelectedTaskId(task.id); setTaskError(""); }}
-                        aria-pressed={isSelected}
-                        className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${isCompleted ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : isSelected ? "border-orange-300 bg-orange-50/70 ring-2 ring-orange-100" : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"}`}
+                        onClick={() => {
+                          if (!isCompleted) {
+                            setSelectedTaskId(task.id);
+                            setTaskError("");
+                          }
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition cursor-pointer ${
+                          isCompleted
+                            ? "border-emerald-200 bg-emerald-50/40"
+                            : isSelected
+                            ? "border-orange-300 bg-orange-50/70 ring-2 ring-orange-100"
+                            : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"
+                        }`}
                       >
-                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-50 text-emerald-600" : isSelected ? "bg-[#FF5500] text-white" : "bg-slate-100 text-slate-500"}`}>
-                          {isCompleted ? <Check className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-extrabold text-slate-800">{task.title}</span>
-                          <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">{statusLabel(task.status)}</span>
-                        </span>
-                        {isSelected && !isCompleted && <CheckCircle2 className="h-5 w-5 shrink-0 text-[#FF5500]" />}
-                      </button>
+                        {/* Checklist button */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleTaskCompletion(task.id, e)}
+                          title={isCompleted ? "Tandai belum selesai" : "Tandai tugas selesai"}
+                          aria-label={isCompleted ? "Tandai belum selesai" : "Tandai tugas selesai"}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition transform active:scale-90 ${
+                            isCompleted
+                              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/30 hover:bg-emerald-700"
+                              : "border-2 border-slate-300 bg-white text-transparent hover:border-[#FF5500] hover:text-[#FF5500]/50"
+                          }`}
+                        >
+                          <Check className={`h-5 w-5 ${isCompleted ? "stroke-[3]" : ""}`} />
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <span className={`block truncate text-sm font-extrabold ${isCompleted ? "line-through text-slate-400" : "text-slate-800"}`}>
+                            {task.title}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">
+                            {statusLabel(task.status)}
+                          </span>
+                        </div>
+
+                        {isSelected && !isCompleted && (
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-[#FF5500]">
+                            Dipilih
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

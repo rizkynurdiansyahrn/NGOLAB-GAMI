@@ -219,10 +219,22 @@ export default function MobileDashboard({
               transition={{ duration: 0.24, delay: index * 0.02 }}
               className="group flex w-full overflow-hidden rounded-2xl border border-white bg-white text-left shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition-shadow hover:shadow-xl"
             >
-              <div className="relative aspect-[4/3] w-32 shrink-0 overflow-hidden bg-slate-200 sm:w-36">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPlay(game.id);
+                }}
+                className="relative aspect-[4/3] w-32 shrink-0 overflow-hidden bg-slate-200 sm:w-36 cursor-pointer group/thumb"
+                title="Klik untuk langsung mainkan game ini"
+              >
                 <img src={game.thumbnail} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent" />
-                <span className="absolute left-2 top-2 rounded-full bg-[#FF5500] px-2 py-1 text-[7px] font-black uppercase tracking-wide text-white shadow sm:text-[8px]">Populer</span>
+                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-[#FF5500] text-white flex items-center justify-center shadow-lg">
+                    <Play className="w-4 h-4 fill-white translate-x-0.5" />
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none" />
+                <span className="absolute left-2 top-2 rounded-full bg-[#FF5500] px-2 py-1 text-[7px] font-black uppercase tracking-wide text-white shadow sm:text-[8px] pointer-events-none">Populer</span>
               </div>
               <div className="flex min-w-0 flex-1 flex-col justify-center p-3 sm:p-4">
                 <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#FF5500] sm:text-[9px]">{game.category}</p>

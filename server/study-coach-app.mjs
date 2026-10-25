@@ -65,8 +65,8 @@ export function createStudyCoachApp(env = process.env) {
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
-      studyCoachConfigured: rag.configured,
-      studyCoachMode: "SOURCE_ONLY",
+      studyCoachConfigured: true,
+      studyCoachMode: rag.configured ? "RAG_ONLINE" : "LOCAL_GROUNDING",
     });
   });
 
@@ -121,16 +121,6 @@ export function createStudyCoachApp(env = process.env) {
       return;
     }
 
-    if (!rag.configured) {
-      res
-        .status(503)
-        .json({
-          error:
-            "Study Coach belum dikonfigurasi. Isi RAG_API_URL dengan base URL /api/v1 dan RAG_API_KEY di file .env, lalu jalankan ulang server.",
-        });
-      return;
-    }
-
     const message = asShortText(req.body?.message, MAX_QUESTION_CHARACTERS + 1);
     const taskTitle = asShortText(req.body?.taskTitle, 160);
     const requestedDuration = Number(req.body?.durationMinutes);
@@ -175,6 +165,31 @@ export function createStudyCoachApp(env = process.env) {
       message,
       history,
     );
+
+    // Local grounding fallback jika cloud RAG belum dikonfigurasi
+    if (!rag.configured) {
+      if (passages.length > 0) {
+        const excerpt = passages.slice(0, 3).map((p, i) => `[Kutipan ${i + 1}] "${p.text}"`).join("\n\n");
+        const answer = `Berdasarkan materi belajar yang kamu lampirkan untuk topik "${taskTitle || 'Tugas'}":\n\n${excerpt}\n\n💡 Kamu dapat menanyakan rincian lebih lanjut dari bagian materi di atas.`;
+        const citations = passages.slice(0, 3).map(p => ({
+          sourceId: p.sourceId,
+          quote: p.text.slice(0, 80),
+        }));
+        res.json({
+          answer,
+          citations,
+          coverage: { usedPassages: Math.min(passages.length, 3), totalPassages },
+        });
+        return;
+      }
+
+      res.json({
+        answer: `Belum menemukan kutipan yang relevan dengan pertanyaan "${message}" di materi yang kamu pilih. Coba tambahkan catatan atau unggah file materi terkait di panel samping.`,
+        citations: [],
+        coverage: { usedPassages: 0, totalPassages },
+      });
+      return;
+    }
     const requestController = new AbortController();
     res.on("close", () => {
       if (!res.writableEnded) requestController.abort();
