@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Search, Send, Plus, Gift, CheckCircle2 } from "lucide-react";
 import { AppUser } from "../data/appData";
+import { API_BASE_URL } from "../lib/api";
 
 interface MobilePatunganProps {
   userId: string | null;
   user: AppUser;
+  accessToken?: string | null;
   onRefreshUser?: () => void;
 }
 
@@ -23,8 +25,6 @@ function AnimatedCounter({ value }: { value: number }) {
     const step = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-
-      // easeOutExpo for satisfying slow-down at the end
       const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
 
       setDisplayValue(
@@ -43,7 +43,7 @@ function AnimatedCounter({ value }: { value: number }) {
   return <span>{displayValue.toLocaleString()}</span>;
 }
 
-export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePatunganProps) {
+export default function MobilePatungan({ userId, user, accessToken, onRefreshUser }: MobilePatunganProps) {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [transferAmount, setTransferAmount] = useState("");
@@ -59,23 +59,28 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
   const [newRoomTarget, setNewRoomTarget] = useState("");
   const [newRoomDesc, setNewRoomDesc] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [transferSuccessMsg, setTransferSuccessMsg] = useState<string | null>(null);
+
   // Input contribution per room
   const [contribAmounts, setContribAmounts] = useState<Record<string, string>>({});
 
   const fetchRooms = async () => {
     setLoadingRooms(true);
     try {
-      const response = await fetch("https://geasture.kolab.top/api/patungan-rooms");
+      const response = await fetch(`${API_BASE_URL}/api/patungan-rooms`, {
+        cache: "no-store",
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
           const mapped = data.map((room: any) => ({
             id: String(room.id || room.room_id || "room-1"),
-            title: room.title || room.name || "Patungan Ultah Vemas",
+            title: room.title || room.name || "Patungan Kampus",
             category: room.category || "Kantin",
             targetAmount: Number(room.targetAmount ?? room.target_amount ?? room.target ?? 15000),
-            currentAmount: Number(room.currentAmount ?? room.current_amount ?? room.current ?? 8500),
+            currentAmount: Number(room.currentAmount ?? room.current_amount ?? room.current ?? 0),
             membersCount: Number(room.membersCount ?? room.members_count ?? room.members?.length ?? 3),
             members: room.members || [
               { name: "Vemas", amount: 2000, img: "https://i.pravatar.cc/150?u=1" },
@@ -93,7 +98,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
       }
       throw new Error("Invalid structure");
     } catch (err) {
-      console.warn("Gagal mengambil patungan rooms dari API, menggunakan mock local storage:", err);
+      console.warn("Gagal mengambil patungan rooms dari API, menggunakan cadangan lokal:", err);
       const stored = localStorage.getItem(`patungan_rooms_${userId || 'mock'}`);
       if (stored) {
         setRooms(JSON.parse(stored));
@@ -139,130 +144,121 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
   };
 
   useEffect(() => {
-    fetchRooms();
-  }, [userId]);
+    void fetchRooms();
+  }, [userId, accessToken]);
 
   const handleContribute = async (roomId: string, amountStr: string) => {
-    const amount = parseInt(amountStr);
+    setFeedbackError(null);
+    const amount = parseInt(amountStr, 10);
     if (isNaN(amount) || amount <= 0) {
-      alert("Masukkan jumlah koin yang valid!");
+      setFeedbackError("Masukkan jumlah poin urunan yang valid (lebih dari 0).");
       return;
     }
     if (user.points < amount) {
-      alert("Saldo koin Anda tidak cukup!");
+      setFeedbackError("Saldo poin Anda tidak cukup untuk jumlah urunan ini.");
+      return;
+    }
+
+    if (!userId) {
+      setFeedbackError("Silakan login terlebih dahulu untuk berkontribusi.");
       return;
     }
 
     setIsFloating(true);
     setSelectedRoomId(roomId);
-    
-    // Call API: POST /api/patungan-rooms/{room_id}/contribute
-    if (userId) {
-      try {
-        const response = await fetch(`https://geasture.kolab.top/api/patungan-rooms/${roomId}/contribute`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            amount: amount
-          })
-        });
 
-        if (!response.ok) {
-          throw new Error("API request failed with status: " + response.status);
-        }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/patungan-rooms/${encodeURIComponent(roomId)}/contribute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          amount,
+        }),
+      });
 
-        // Deduct points on server (updates recommendations database)
-        // Refresh points in layout
-        if (onRefreshUser) onRefreshUser();
-        fetchRooms();
-        
-        setTimeout(() => {
-          setIsFloating(false);
-          const roomObj = rooms.find(r => r.id === roomId);
-          if (roomObj) {
-            const isCompleted = roomObj.currentAmount + amount >= roomObj.targetAmount;
-            if (isCompleted) {
-              setSuccessRoom({
-                ...roomObj,
-                currentAmount: roomObj.currentAmount + amount
-              });
-              setIsSuccess(true);
-            }
-          }
-          setContribAmounts(prev => ({ ...prev, [roomId]: "" }));
-          
-          // Show success toast for Katalon
-          setToastMessage("Berhasil Urunan");
-          setTimeout(() => setToastMessage(null), 3000);
-        }, 1200);
-      } catch (err) {
-        console.error("Gagal berkontribusi ke server, melakukan simulasi lokal:", err);
-        // Local simulation fallback
-        setTimeout(() => {
-          setIsFloating(false);
-          const updated = rooms.map(room => {
-            if (room.id === roomId) {
-              const updatedCurrent = room.currentAmount + amount;
-              const completed = updatedCurrent >= room.targetAmount;
-              const newRoom = {
-                ...room,
-                currentAmount: updatedCurrent,
-                membersCount: room.membersCount + 1,
-                members: [...room.members, { name: user.name, amount: amount, img: user.avatar }]
-              };
-              if (completed) {
-                setSuccessRoom(newRoom);
-                setIsSuccess(true);
-              }
-              return newRoom;
-            }
-            return room;
-          });
-          setRooms(updated);
-          localStorage.setItem(`patungan_rooms_${userId || 'mock'}`, JSON.stringify(updated));
-          
-          // Deduct points simulation local (via alert or updating local balance if possible)
-          // We can call earn-coins with a negative amount to deduct points from backend if supported, 
-          // but calling onRefreshUser is cleaner. We'll simulate user point deduction locally for UI too.
-          user.points -= amount;
-          if (onRefreshUser) onRefreshUser();
-          setContribAmounts(prev => ({ ...prev, [roomId]: "" }));
-          
-          // Show success toast for Katalon
-          setToastMessage("Berhasil Urunan");
-          setTimeout(() => setToastMessage(null), 3000);
-        }, 1200);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.message || `HTTP ${response.status}`);
       }
-    } else {
-      alert("Silakan login terlebih dahulu untuk berkontribusi.");
+
+      if (onRefreshUser) onRefreshUser();
+      await fetchRooms();
+
+      setTimeout(() => {
+        setIsFloating(false);
+        const roomObj = rooms.find((r) => r.id === roomId);
+        if (roomObj) {
+          const isCompleted = roomObj.currentAmount + amount >= roomObj.targetAmount;
+          if (isCompleted) {
+            setSuccessRoom({
+              ...roomObj,
+              currentAmount: roomObj.currentAmount + amount,
+            });
+            setIsSuccess(true);
+          }
+        }
+        setContribAmounts((prev) => ({ ...prev, [roomId]: "" }));
+        setToastMessage("Berhasil Urunan");
+        setTimeout(() => setToastMessage(null), 3000);
+      }, 900);
+    } catch (err: any) {
       setIsFloating(false);
+      setFeedbackError(err?.message || "Gagal memproses kontribusi patungan.");
     }
   };
 
-  const handleCreateRoom = (e: React.FormEvent) => {
+  const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoomTitle || !newRoomTarget) return;
-    
-    const newRoom = {
-      id: `room-${Date.now()}`,
-      title: newRoomTitle,
-      category: "UMKM",
-      targetAmount: parseInt(newRoomTarget),
-      currentAmount: 0,
-      membersCount: 0,
-      members: [],
-      voucherCode: `GAMI-UMKM-${Math.floor(Math.random()*100)}`,
-      voucherValue: "Sesuai Target",
-      description: newRoomDesc || `Patungan baru untuk ${newRoomTitle}`
-    };
+    setFeedbackError(null);
+    if (!newRoomTitle.trim() || !newRoomTarget) return;
+    const parsedTarget = parseInt(newRoomTarget, 10);
+    if (isNaN(parsedTarget) || parsedTarget <= 0) {
+      setFeedbackError("Target poin patungan harus lebih dari 0.");
+      return;
+    }
 
-    const updatedRooms = [newRoom, ...rooms];
-    setRooms(updatedRooms);
-    localStorage.setItem(`patungan_rooms_${userId || 'mock'}`, JSON.stringify(updatedRooms));
-    
+    const roomId = `room-${Date.now()}`;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/patungan-rooms`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          id: roomId,
+          title: newRoomTitle.trim(),
+          target_amount: parsedTarget,
+          description: newRoomDesc.trim(),
+        }),
+      });
+      if (res.ok) {
+        await fetchRooms();
+      } else {
+        throw new Error("Fallback local");
+      }
+    } catch {
+      const newRoom = {
+        id: roomId,
+        title: newRoomTitle.trim(),
+        category: "UMKM",
+        targetAmount: parsedTarget,
+        currentAmount: 0,
+        membersCount: 0,
+        members: [],
+        voucherCode: `GAMI-UMKM-${Math.floor(Math.random() * 100)}`,
+        voucherValue: "Sesuai Target",
+        description: newRoomDesc.trim() || `Patungan baru untuk ${newRoomTitle.trim()}`,
+      };
+      const updatedRooms = [newRoom, ...rooms];
+      setRooms(updatedRooms);
+      localStorage.setItem(`patungan_rooms_${userId || "mock"}`, JSON.stringify(updatedRooms));
+    }
+
     setShowCreateModal(false);
     setNewRoomTitle("");
     setNewRoomTarget("");
@@ -272,95 +268,87 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
   };
 
   const mockFriends = [
-    { name: "Fahreza", avatar: "https://i.pravatar.cc/150?u=fahreza" },
-    { name: "Zulfahmi", avatar: "https://i.pravatar.cc/150?u=zulfahmi" },
-    { name: "Vemas", avatar: "https://i.pravatar.cc/150?u=vemas" },
-    { name: "Rizky", avatar: "https://i.pravatar.cc/150?u=rizky" },
-    { name: "Adit", avatar: "https://i.pravatar.cc/150?u=adit" },
-    { name: "Bagus", avatar: "https://i.pravatar.cc/150?u=bagus" }
+    { name: "Mahasiswa Demo", query: "2101001", avatar: "https://i.pravatar.cc/150?u=member" },
+    { name: "Ayesha Al Sidiq", query: "ayesha@student.telkomuniversity.ac.id", avatar: "https://i.pravatar.cc/150?u=ayesha" },
+    { name: "Rizky Nurd", query: "nurd@student.telkomuniversity.ac.id", avatar: "https://i.pravatar.cc/150?u=nurd" },
   ];
 
-  const suggestedUsers = mockFriends.filter((u) => 
-    u.name.toLowerCase().includes(recipient.toLowerCase())
+  const suggestedUsers = mockFriends.filter(
+    (u) =>
+      u.name.toLowerCase().includes(recipient.toLowerCase()) ||
+      u.query.toLowerCase().includes(recipient.toLowerCase()),
   );
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseInt(transferAmount);
-    if (!transferAmount || !recipient || isNaN(amount) || amount <= 0) return;
+    setFeedbackError(null);
+    setTransferSuccessMsg(null);
+    const amount = parseInt(transferAmount, 10);
+    if (!transferAmount || !recipient.trim() || isNaN(amount) || amount <= 0) {
+      setFeedbackError("Masukkan penerima dan nominal poin yang valid.");
+      return;
+    }
 
     if (user.points < amount) {
-      alert("Saldo koin Anda tidak cukup!");
+      setFeedbackError("Saldo poin Anda tidak cukup untuk transfer ini.");
+      return;
+    }
+
+    if (!userId || !accessToken) {
+      setFeedbackError("Silakan login terlebih dahulu.");
       return;
     }
 
     setIsFloating(true);
-
-    // Simulasi pengecekan user ke database/API
-    // Di sistem nyata, kita akan hit API seperti GET /api/users/check?username=recipient
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    if (recipient.trim().length < 4) {
-      setIsFloating(false);
-      alert("Penerima tidak ditemukan! Pastikan Username atau NIM sudah benar dan terdaftar.");
-      return;
-    }
-    
-    // Simulate peer to peer transfer by calling earn-coins with a negative amount on the backend
-    if (userId) {
-      try {
-        await fetch(`https://geasture.kolab.top/api/users/${userId}/earn-coins`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            amount: -amount,
-            description: `Transfer poin instan ke ${recipient}`
-          })
-        });
-
-        setTimeout(() => {
-          setIsFloating(false);
-          alert(`Transfer instan sebesar ${amount} PT ke ${recipient} berhasil!`);
-          setTransferAmount("");
-          setRecipient("");
-          if (onRefreshUser) onRefreshUser();
-        }, 1500);
-      } catch (err) {
-        console.warn("Gagal melakukan transfer peer-to-peer ke server, melakukan simulasi lokal:", err);
-        setTimeout(() => {
-          setIsFloating(false);
-          user.points -= amount;
-          alert(`Transfer instan sebesar ${amount} PT ke ${recipient} berhasil (Simulasi Lokal)!`);
-          setTransferAmount("");
-          setRecipient("");
-          if (onRefreshUser) onRefreshUser();
-        }, 1500);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/patungan-rooms/transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          recipient: recipient.trim(),
+          amount,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || `Gagal mengirim poin (HTTP ${res.status})`);
       }
-    } else {
-      alert("Silakan login terlebih dahulu.");
+
+      setTimeout(() => {
+        setIsFloating(false);
+        setTransferSuccessMsg(data?.message || `Transfer instan sebesar ${amount} PT berhasil!`);
+        setTransferAmount("");
+        setRecipient("");
+        if (onRefreshUser) onRefreshUser();
+      }, 800);
+    } catch (err: any) {
       setIsFloating(false);
+      setFeedbackError(err?.message || "Gagal memproses transfer poin.");
     }
   };
 
   return (
-    <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar p-6 pt-10 font-sans pb-32 bg-[#FAF9F6]">
+    <div className="flex-1 w-full relative overflow-y-auto custom-scrollbar p-6 pt-10 font-sans pb-32 bg-[#FAF9F6] rounded-3xl">
       {/* Background Decor */}
       <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#FF6B00]/10 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="max-w-xl mx-auto relative z-10">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-end">
+        <div className="mb-6 flex justify-between items-end">
           <div>
             <h2 className="text-3xl font-extrabold tracking-tight text-[#1A1A1A] mb-1">
               Gami-Patungan
             </h2>
             <p className="text-[#1A1A1A]/60 text-sm font-semibold tracking-wide">
-              Bagi Poin, Bagi Kebahagiaan
+              Bagi Poin, Bagi Kebahagiaan ({user.points.toLocaleString()} PT tersedia)
             </p>
           </div>
           <button
+            type="button"
+            aria-label="Buat patungan baru"
             onClick={() => setShowCreateModal(true)}
             className="bg-[#1A1A1A] text-white p-3 rounded-2xl hover:bg-gray-800 transition-colors shadow-lg flex items-center justify-center gap-2"
           >
@@ -368,24 +356,36 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
           </button>
         </div>
 
+        {feedbackError && (
+          <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+            {feedbackError}
+          </div>
+        )}
+
+        {transferSuccessMsg && (
+          <div role="status" className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
+            {transferSuccessMsg}
+          </div>
+        )}
+
         {loadingRooms && rooms.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 font-medium">Memuat ruangan patungan...</div>
+          <div role="status" className="text-center py-12 text-gray-500 font-medium">Memuat ruangan patungan...</div>
         ) : (
           <div className="space-y-6 mb-8">
             {rooms.map((room) => {
-              const percentage = Math.min(100, Math.floor((room.currentAmount / room.targetAmount) * 100));
+              const percentage = Math.min(100, Math.floor((room.currentAmount / Math.max(1, room.targetAmount)) * 100));
               const isRoomSuccess = isSuccess && successRoom?.id === room.id;
-              
+
               return (
                 <motion.div
                   key={room.id}
                   id={room.id === "room-1" ? "btn_room_aktif" : undefined}
-                  className={`relative bg-white/70 backdrop-blur-xl border ${isRoomSuccess ? "border-[#FF6B00]" : "border-gray-200"} rounded-[32px] p-6 shadow-[0_10px_40px_rgba(0,0,0,0.05)] overflow-hidden`}
+                  className={`relative bg-white/70 backdrop-blur-xl border ${isRoomSuccess || selectedRoomId === room.id ? "border-[#FF6B00]" : "border-gray-200"} rounded-[32px] p-6 shadow-[0_10px_40px_rgba(0,0,0,0.05)] overflow-hidden`}
                 >
                   <div className="relative z-10">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold text-lg text-[#1A1A1A] flex items-center gap-2">
-                        <span>🎉</span> {room.title}
+                        <Users className="w-5 h-5 text-[#FF6B00]" /> {room.title}
                       </h3>
                     </div>
 
@@ -396,7 +396,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                     {/* Members Avatar */}
                     <div className="flex items-center gap-2 mb-6">
                       <div className="flex -space-x-3">
-                        {room.members.map((member: any, i: number) => (
+                        {room.members.slice(0, 5).map((member: any, i: number) => (
                           <div key={i} className="relative group cursor-pointer">
                             <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-sm relative z-10 group-hover:scale-110 transition-transform">
                               <img
@@ -412,7 +412,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                         ))}
                       </div>
                       <span className="text-xs font-semibold text-gray-400 ml-2">
-                        {room.membersCount} Anggota
+                        {room.membersCount} Kontribusi
                       </span>
                     </div>
 
@@ -444,19 +444,20 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
 
                     {/* Contribute Input Area */}
                     {room.currentAmount < room.targetAmount && (
-                      <div className="flex gap-2 mt-4 relative z-50">
+                      <div className="flex gap-2 mt-4 relative z-20">
                         <input
                           id={room.id === "room-1" ? "input_poin_patungan" : undefined}
                           type="number"
-                          placeholder="Jumlah koin urunan..."
+                          min={1}
+                          placeholder="Jumlah poin urunan..."
                           value={contribAmounts[room.id] || ""}
-                          onChange={(e) => setContribAmounts(prev => ({ ...prev, [room.id]: e.target.value }))}
+                          onChange={(e) => setContribAmounts((prev) => ({ ...prev, [room.id]: e.target.value }))}
                           className="flex-1 h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-xs font-bold text-[#1A1A1A] placeholder-gray-400 focus:outline-none focus:border-[#FF6B00]"
                         />
                         <button
                           id={room.id === "room-1" ? "btn_sumbang_patungan" : undefined}
                           type="button"
-                          onClick={() => handleContribute(room.id, contribAmounts[room.id] || "")}
+                          onClick={() => void handleContribute(room.id, contribAmounts[room.id] || "")}
                           className="bg-[#1A1A1A] hover:bg-gray-800 text-white font-extrabold text-xs px-5 rounded-xl uppercase tracking-wider transition-all flex items-center justify-center"
                         >
                           Urunan
@@ -519,6 +520,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setShowVoucher(false)}
                   className="bg-[#1A1A1A] text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-800 transition-colors w-full uppercase text-xs tracking-wider"
                 >
@@ -543,15 +545,15 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                 <form onSubmit={handleCreateRoom} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Judul Patungan</label>
-                    <input type="text" required value={newRoomTitle} onChange={e => setNewRoomTitle(e.target.value)} className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Contoh: Kado Wisuda Teman" />
+                    <input type="text" required value={newRoomTitle} onChange={(e) => setNewRoomTitle(e.target.value)} className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Contoh: Kado Wisuda Teman" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Target Koin</label>
-                    <input type="number" required value={newRoomTarget} onChange={e => setNewRoomTarget(e.target.value)} className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Contoh: 50000" />
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Target Poin</label>
+                    <input type="number" min={1} required value={newRoomTarget} onChange={(e) => setNewRoomTarget(e.target.value)} className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Contoh: 50000" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Deskripsi</label>
-                    <textarea value={newRoomDesc} onChange={e => setNewRoomDesc(e.target.value)} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Deskripsi singkat..." rows={2}></textarea>
+                    <textarea value={newRoomDesc} onChange={(e) => setNewRoomDesc(e.target.value)} className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-[#1A1A1A] text-sm font-semibold focus:outline-none focus:border-[#FF6B00]" placeholder="Deskripsi singkat..." rows={2}></textarea>
                   </div>
                   <div className="flex gap-2 pt-2">
                     <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-gray-100 text-gray-600 h-12 rounded-xl font-bold uppercase text-xs tracking-wider transition-colors hover:bg-gray-200">Batal</button>
@@ -590,6 +592,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 50 }}
               id="div_status_sumbang"
+              role="status"
               className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-3 rounded-full shadow-xl font-bold z-[100]"
             >
               {toastMessage}
@@ -602,7 +605,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
           <div className="flex items-center gap-2 mb-6">
             <Send className="w-5 h-5 text-[#FF6B00]" />
             <h3 className="text-lg font-bold text-[#1A1A1A]">
-              Kirim Poin Instan
+              Kirim Poin Instan (Antar Member)
             </h3>
           </div>
 
@@ -620,13 +623,13 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder="Username atau NIM Teman"
+                placeholder="NIM, Email, No HP, atau Nama Teman"
                 className="w-full h-14 bg-gray-50 border border-gray-200 rounded-2xl pl-11 pr-4 text-[#1A1A1A] font-semibold focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 transition-all placeholder:text-gray-400 text-sm relative z-10"
               />
-              
+
               {/* Dropdown Suggestions */}
               <AnimatePresence>
-                {showSuggestions && recipient && suggestedUsers.length > 0 && (
+                {showSuggestions && suggestedUsers.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -637,13 +640,16 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
                       <div
                         key={idx}
                         onClick={() => {
-                          setRecipient(u.name);
+                          setRecipient(u.query);
                           setShowSuggestions(false);
                         }}
                         className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
                       >
                         <img src={u.avatar} alt={u.name} className="w-8 h-8 rounded-full bg-gray-200 object-cover" />
-                        <span className="text-sm font-bold text-[#1A1A1A]">{u.name}</span>
+                        <div className="min-w-0">
+                          <span className="block text-sm font-bold text-[#1A1A1A]">{u.name}</span>
+                          <span className="block text-[11px] text-gray-400 truncate">{u.query}</span>
+                        </div>
                       </div>
                     ))}
                   </motion.div>
@@ -657,6 +663,7 @@ export default function MobilePatungan({ userId, user, onRefreshUser }: MobilePa
               </div>
               <input
                 type="number"
+                min={1}
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(e.target.value)}
                 placeholder="Nominal Poin"

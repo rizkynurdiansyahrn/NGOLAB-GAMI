@@ -2,10 +2,10 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { pathToFileURL } from 'node:url';
-import {defineConfig, loadEnv, type Plugin} from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-function studyCoachApiPlugin(env: Record<string, string>): Plugin {
+function studyCoachApiPlugin(env: Record<string, string>, devPort: number): Plugin {
   return {
     name: 'ngolab-study-coach-api',
     apply: 'serve',
@@ -29,18 +29,20 @@ function studyCoachApiPlugin(env: Record<string, string>): Plugin {
         }
         next();
       });
-      server.config.logger.info('Study Coach API aktif bersama aplikasi di port 3000.');
+      server.config.logger.info(`Study Coach API aktif bersama aplikasi di port ${devPort}.`);
     },
   };
 }
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const membershipApiTarget = (env.VITE_API_BASE_URL || 'https://geasteats.ngolab.online').replace(/\/+$/, '');
+  const membershipApiTarget = (env.VITE_API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  const devPort = Number(env.VITE_PORT || env.PORT || 3001);
+  const isHttpsTarget = membershipApiTarget.startsWith('https://');
 
   return {
     plugins: [
-      studyCoachApiPlugin(env),
+      studyCoachApiPlugin(env, devPort),
       react(),
       tailwindcss(),
       VitePWA({
@@ -77,21 +79,26 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 3000,
-      strictPort: true,
+      port: devPort,
+      strictPort: false,
       host: '0.0.0.0',
       hmr: process.env.DISABLE_HMR !== 'true',
       proxy: {
         '/membership-api': {
           target: membershipApiTarget,
           changeOrigin: true,
-          secure: true,
+          secure: isHttpsTarget,
           rewrite: (requestPath) => requestPath.replace(/^\/membership-api/, ''),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyRequest) => {
               proxyRequest.removeHeader('origin');
             });
           },
+        },
+        '/uploads': {
+          target: membershipApiTarget,
+          changeOrigin: true,
+          secure: isHttpsTarget,
         },
       },
     },

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import {
   Flame,
@@ -11,17 +11,28 @@ import {
   CheckCircle2,
   ArrowUpRight,
   Sparkles,
+  Gift,
+  Users,
+  ExternalLink,
 } from "lucide-react";
 import { AppUser } from "../data/appData";
 import { dummyGames, Game } from "../data/dummyData";
 import HeaderNav from "../components/HeaderNav";
+import { POINTLAB_URL, buildPointLabSsoUrl } from "../lib/voucherLink";
 
 interface MobileDashboardProps {
   userId: string | null;
   user: AppUser;
+  accessToken?: string | null;
   onPlay: (gameId: string) => void;
   onSelectDetail?: (game: Game) => void;
   onOpenProfile?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenRewards?: () => void;
+  onOpenPatungan?: () => void;
+  onOpenNotifications?: () => void;
+  onOpenAchievement?: () => void;
+  onOpenSettings?: () => void;
   onLogout?: () => void;
   onRefreshUser?: () => void;
   onSeeAll?: () => void;
@@ -29,31 +40,46 @@ interface MobileDashboardProps {
 
 export default function MobileDashboard({
   user,
+  accessToken,
   onPlay,
   onSelectDetail,
   onOpenProfile,
+  onOpenLeaderboard,
+  onOpenRewards,
+  onOpenPatungan,
+  onOpenNotifications,
+  onOpenAchievement,
+  onOpenSettings,
   onLogout,
   onSeeAll,
 }: MobileDashboardProps) {
-  const popularGames = dummyGames.slice(0, 3);
+  const [searchTerm, setSearchTerm] = useState("");
+  const filteredGames = searchTerm.trim()
+    ? dummyGames.filter((g) => g.title.toLowerCase().includes(searchTerm.trim().toLowerCase()) || g.category.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+    : dummyGames.slice(0, 3);
   const featuredGame = dummyGames.find((game) => game.id === "ngolab-catch") || dummyGames[0];
   const firstName = user.name?.trim().split(/\s+/)[0] || "Gamer";
-  const levelProgress = Math.min(100, Math.max(0, (user.exp / user.nextExp) * 100));
+  const levelProgress = Math.min(100, Math.max(0, (user.exp / Math.max(1, user.nextExp)) * 100));
+  const pointLabSsoUrl = buildPointLabSsoUrl(POINTLAB_URL, accessToken);
 
   return (
     <div id="div_saldo_poin" className="relative isolate flex-1 w-full bg-[radial-gradient(ellipse_at_10%_0%,rgba(255,85,0,0.07),transparent_30%),radial-gradient(ellipse_at_90%_34%,rgba(99,102,241,0.06),transparent_28%),#F3F4F8] font-sans pb-28">
-      {/* Top Header Navigation Bar (Screenshot 3 Header) */}
+      {/* Top Header Navigation Bar */}
       <HeaderNav
         breadcrumb="Dashboard Pemain"
         user={user}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
         onOpenProfile={onOpenProfile}
+        onOpenNotifications={onOpenNotifications}
+        onOpenAchievement={onOpenAchievement}
+        onOpenSettings={onOpenSettings}
         onLogout={onLogout}
       />
 
       {/* Featured game banner */}
       <div className="relative isolate mb-7 w-full overflow-hidden rounded-[30px] border border-slate-800 bg-slate-950 shadow-[0_24px_60px_rgba(15,23,42,0.22)] sm:mb-8 sm:rounded-[36px]">
         <div className="min-h-[300px] sm:min-h-[360px] md:min-h-[400px] relative flex items-center p-6 sm:p-10 md:p-12 overflow-hidden">
-          {/* Background image & overlays */}
           <img
             src={featuredGame.thumbnail}
             alt={featuredGame.title}
@@ -66,7 +92,6 @@ export default function MobileDashboard({
             <Sparkles className="absolute inset-0 m-auto h-8 w-8 text-orange-100" />
           </motion.div>
 
-          {/* Banner Text */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.45 }} className="relative z-10 max-w-xl space-y-3.5 sm:space-y-4">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200/20 bg-orange-500/15 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-orange-100 shadow-md backdrop-blur-md sm:text-[10px]">
               <Sparkles className="h-3.5 w-3.5" /> PILIHAN BUAT KAMU
@@ -106,15 +131,18 @@ export default function MobileDashboard({
               </button>
             </div>
           </motion.div>
-
         </div>
       </div>
 
-      {/* 4 Stat Cards Grid (Screenshot 3) */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.45 }} className="grid grid-cols-2 gap-3.5 mb-8 sm:gap-4 lg:grid-cols-4">
+      {/* 4 Stat Cards Grid */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.45 }} className="grid grid-cols-2 gap-3.5 mb-6 sm:gap-4 lg:grid-cols-4">
         {/* Stat 1: Poin Ngolab */}
-        <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-amber-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">
-          <div className="flex justify-between items-start mb-3">
+        <button
+          type="button"
+          onClick={onOpenRewards}
+          className="text-left group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-amber-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5"
+        >
+          <div className="flex w-full justify-between items-start mb-3">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
               POIN NGOLAB
             </span>
@@ -126,14 +154,19 @@ export default function MobileDashboard({
               <span className="text-xs font-bold text-slate-400">PTS</span>
             </h3>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-              {user.pointsAvailable === false ? "Saldo poin belum tersedia" : "Saldo Loyalty Points"}
+              {user.pointsAvailable === false ? "Saldo poin belum tersedia" : "Klik untuk tukar hadiah →"}
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Stat 2: Peringkat */}
-        <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-orange-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">
-          <div className="flex justify-between items-start mb-3">
+        <button
+          id="tab_leaderboard"
+          type="button"
+          onClick={onOpenLeaderboard}
+          className="text-left group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-orange-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5"
+        >
+          <div className="flex w-full justify-between items-start mb-3">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
               PERINGKAT
             </span>
@@ -141,13 +174,13 @@ export default function MobileDashboard({
           </div>
           <div>
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
-              {user.rank ? `#${user.rank}` : "—"}
+              {user.rank ? `#${user.rank}` : "Lihat"}
             </h3>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-              {user.rank ? "Peringkat pemain" : "Peringkat poin belum tersedia"}
+              {user.rank ? "Papan skor kampus →" : "Buka papan skor kampus →"}
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Stat 3: Game Dimainkan */}
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white bg-gradient-to-br from-white via-white to-indigo-50 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-5">
@@ -189,12 +222,72 @@ export default function MobileDashboard({
         </div>
       </motion.div>
 
+      {/* Quick Ecosystem Shortcuts */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+        <button
+          type="button"
+          onClick={onOpenRewards}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-[#FF5500]/40 hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#FF5500]">
+              <Gift className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-black text-slate-900">Marketplace Hadiah</p>
+              <p className="text-[11px] font-medium text-slate-500">Tukar poin jadi voucher kantin</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+        </button>
+
+        <button
+          id="tab_patungan"
+          type="button"
+          onClick={onOpenPatungan}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-[#FF5500]/40 hover:shadow-md"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <Users className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-black text-slate-900">Gami-Patungan &amp; Transfer</p>
+              <p className="text-[11px] font-medium text-slate-500">Urunan &amp; kirim poin ke teman</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+        </button>
+
+        {pointLabSsoUrl && (
+          <a
+            href={pointLabSsoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-3.5 text-left shadow-sm transition hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF5500] text-white">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-black text-slate-900">Buka Aplikasi PointLab</p>
+                <p className="text-[11px] font-medium text-slate-600">Kartu Member, QR &amp; AI Chat</p>
+              </div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-[#FF5500] shrink-0" />
+          </a>
+        )}
+      </div>
+
       {/* Game Populer Section */}
       <div className="mb-8">
         <div className="flex justify-between items-end mb-3 px-0.5">
           <div>
             <p className="mb-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#FF5500]">PILIHAN ARCADE</p>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight sm:text-xl">Game populer</h2>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight sm:text-xl">
+              {searchTerm.trim() ? `Hasil pencarian "${searchTerm}"` : "Game populer"}
+            </h2>
           </div>
           <button
             type="button"
@@ -206,7 +299,7 @@ export default function MobileDashboard({
         </div>
 
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {popularGames.map((game, index) => (
+          {filteredGames.map((game, index) => (
             <motion.button
               key={game.id}
               type="button"
@@ -219,7 +312,7 @@ export default function MobileDashboard({
               transition={{ duration: 0.24, delay: index * 0.02 }}
               className="group flex w-full overflow-hidden rounded-2xl border border-white bg-white text-left shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition-shadow hover:shadow-xl"
             >
-              <div 
+              <div
                 onClick={(e) => {
                   e.stopPropagation();
                   onPlay(game.id);
@@ -252,18 +345,18 @@ export default function MobileDashboard({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 text-base font-extrabold text-slate-900">
-            <Zap className="h-5 w-5 text-[#FF5500]" /> Aktivitas Terakhir
+            <Zap className="h-5 w-5 text-[#FF5500]" /> Ekosistem Terintegrasi
           </h3>
-          <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-            Riwayat aktivitas akun belum tersedia.
+          <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 leading-relaxed">
+            Seluruh poin dari mini-game dan Gami-Study otomatis tersinkron ke saldo <strong>PointLab</strong> serta dapat ditukarkan langsung di kasir kantin <strong>WarmingUp</strong>.
           </p>
         </section>
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 flex items-center gap-2 text-base font-extrabold text-slate-900">
-            <CheckCircle2 className="h-5 w-5 text-[#FF5500]" /> Misi Harian
+            <CheckCircle2 className="h-5 w-5 text-[#FF5500]" /> Misi Kampus Aktif
           </h3>
-          <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-            Belum ada misi harian yang tersedia untuk akunmu.
+          <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 leading-relaxed">
+            Mainkan minimal 1 mini-game atau selesaikan 1 sesi fokus <strong>Gami-Study</strong> hari ini untuk menambah Loyalty Points &amp; naik peringkat kampus!
           </p>
         </section>
       </div>

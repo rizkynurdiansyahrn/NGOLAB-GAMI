@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { AppUser } from "../data/appData";
 import { earnPoints } from "../lib/pointlab";
+import { API_BASE_URL } from "../lib/api";
 import AIStudyCoach from "../components/AIStudyCoach";
 
 export type TaskStatus = "todo" | "in_progress" | "completed";
@@ -307,7 +308,10 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
     if (!userId) return;
     let isCurrent = true;
 
-    fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, { cache: "no-store" })
+    fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/study-sessions`, {
+      cache: "no-store",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Study history request failed: ${response.status}`);
         return normalizeHistory(await response.json());
@@ -324,7 +328,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
     return () => {
       isCurrent = false;
     };
-  }, [storageKey, userId]);
+  }, [storageKey, userId, accessToken]);
 
   useEffect(() => {
     if (session?.status !== "running") return;
@@ -620,9 +624,12 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
     let remoteSessionSaved = false;
     if (userId) {
       try {
-        const sessionResponse = await fetch(`https://geasture.kolab.top/api/users/${userId}/study-sessions`, {
+        const sessionResponse = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/study-sessions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
           body: JSON.stringify({
             task_id: current.taskId,
             task_title: current.taskTitle,

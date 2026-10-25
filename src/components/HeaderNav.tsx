@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Bell, ChevronRight, Settings, LogOut } from "lucide-react";
+import { Award, Search, Bell, ChevronRight, Settings, LogOut, User } from "lucide-react";
 import { DEFAULT_AVATAR } from "../lib/userProfile";
 
 interface HeaderNavProps {
@@ -13,6 +13,12 @@ interface HeaderNavProps {
   searchValue?: string;
   /** Membuka halaman profil dari menu pengguna. */
   onOpenProfile?: () => void;
+  /** Membuka halaman notifikasi. */
+  onOpenNotifications?: () => void;
+  /** Membuka halaman pencapaian. */
+  onOpenAchievement?: () => void;
+  /** Membuka halaman pengaturan. */
+  onOpenSettings?: () => void;
   /** Keluar dari akun, dipanggil dari menu pengguna. */
   onLogout?: () => void;
 }
@@ -23,6 +29,9 @@ export default function HeaderNav({
   onSearchChange,
   searchValue = "",
   onOpenProfile,
+  onOpenNotifications,
+  onOpenAchievement,
+  onOpenSettings,
   onLogout,
 }: HeaderNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,6 +62,16 @@ export default function HeaderNav({
   const openProfile = () => {
     setMenuOpen(false);
     onOpenProfile?.();
+  };
+
+  const openAchievement = () => {
+    setMenuOpen(false);
+    (onOpenAchievement ?? onOpenProfile)?.();
+  };
+
+  const openSettings = () => {
+    setMenuOpen(false);
+    (onOpenSettings ?? onOpenProfile)?.();
   };
 
   const handleLogout = () => {
@@ -86,6 +105,7 @@ export default function HeaderNav({
         <button
           type="button"
           aria-label="Notifications"
+          onClick={() => onOpenNotifications?.()}
           className="relative p-2 rounded-full hover:bg-slate-200/70 text-slate-600 transition-colors shrink-0"
         >
           <Bell className="w-4 h-4" />
@@ -94,6 +114,7 @@ export default function HeaderNav({
         {/* User Profile Chip + Menu */}
         <div className="relative shrink-0" ref={menuRef}>
           <button
+            id="btn_sidebar"
             type="button"
             aria-label="Menu pengguna"
             aria-haspopup="menu"
@@ -126,6 +147,26 @@ export default function HeaderNav({
                 type="button"
                 role="menuitem"
                 onClick={openProfile}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <User className="h-4 w-4 text-slate-400" />
+                Profil Saya
+              </button>
+              {onOpenAchievement && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={openAchievement}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  <Award className="h-4 w-4 text-slate-400" />
+                  Pencapaian
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openSettings}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Settings className="h-4 w-4 text-slate-400" />

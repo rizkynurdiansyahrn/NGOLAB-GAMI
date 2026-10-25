@@ -4,12 +4,14 @@ import {
   User,
   Gamepad2,
   BookOpen,
+  Gift,
 } from "lucide-react";
 import MobileDashboard from "./MobileDashboard";
 import Library from "./Library";
 import GameDetail from "./GameDetail";
 import MobileLeaderboard from "./MobileLeaderboard";
 import MobilePatungan from "./MobilePatungan";
+import MobileRewards from "./MobileRewards";
 import MobileStudyTracker from "./MobileStudyTracker";
 import Profile from "./Profile";
 import Achievement from "./Achievement";
@@ -33,6 +35,7 @@ type Tab =
   | "home"
   | "library"
   | "detail"
+  | "rewards"
   | "leaderboard"
   | "patungan"
   | "study"
@@ -84,26 +87,48 @@ export default function MobileAppLayout({
         mergeProfileFallback(normalizeUserProfile(data.user, previous), readProfileFallback(userId))
       );
       setProfileError("");
+
       // Saldo resmi Loyalty Points (loyalty_accounts.current_points) menimpa
       // angka dari profil biasa bila member & token tersedia.
       const memberId = typeof data.user.memberId === "string" || typeof data.user.member_id === "string"
         ? String(data.user.memberId ?? data.user.member_id)
-        : user?.memberId ?? null;
+        : initialUser?.memberId ?? null;
       if (memberId && accessToken) {
         try {
           const balance = await getLoyaltyBalance(memberId, accessToken, signal);
-          if (signal?.aborted || !balance) return;
-          setUser((previous) => ({ ...previous, points: balance.currentPoints, pointsAvailable: true }));
+          if (!signal?.aborted && balance) {
+            setUser((previous) => ({ ...previous, memberId, points: balance.currentPoints, pointsAvailable: true }));
+          }
         } catch {
           // Saldo loyalty gagal dimuat: nilai terakhir dari profil tetap dipakai.
         }
+      }
+
+      // Sinkronkan peringkat pemain dari leaderboard bila tersedia
+      try {
+        const lbRes = await fetch(`${API_BASE_URL}/api/leaderboard`, {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal,
+        });
+        if (!signal?.aborted && lbRes.ok) {
+          const lbRaw = await lbRes.json();
+          const lbList = Array.isArray(lbRaw) ? lbRaw : Array.isArray(lbRaw?.leaderboard) ? lbRaw.leaderboard : [];
+          const myIdx = lbList.findIndex((item: any) => String(item.id) === String(userId));
+          if (myIdx >= 0) {
+            const resolvedRank = Number(lbList[myIdx].rank) > 0 ? Number(lbList[myIdx].rank) : myIdx + 1;
+            setUser((previous) => ({ ...previous, rank: resolvedRank }));
+          }
+        }
+      } catch {
+        // Abaikan bila leaderboard sedang tidak tersedia
       }
     } catch (err) {
       if (signal?.aborted) return;
       console.warn("Gagal memperbarui profil:", err);
       setProfileError("Profil belum dapat diperbarui. Data akun terakhir tetap ditampilkan.");
     }
-  }, [userId, accessToken]);
+  }, [userId, accessToken, initialUser?.memberId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -130,9 +155,16 @@ export default function MobileAppLayout({
           <MobileDashboard
             userId={userId}
             user={user}
+            accessToken={accessToken}
             onPlay={onPlay}
             onSelectDetail={handleSelectDetail}
             onOpenProfile={() => setActiveTab("profile")}
+            onOpenLeaderboard={() => setActiveTab("leaderboard")}
+            onOpenRewards={() => setActiveTab("rewards")}
+            onOpenPatungan={() => setActiveTab("patungan")}
+            onOpenNotifications={() => setActiveTab("notifications")}
+            onOpenAchievement={() => setActiveTab("achievement")}
+            onOpenSettings={() => setActiveTab("settings")}
             onLogout={onLogout}
             onRefreshUser={refreshUserProfile}
             onSeeAll={() => setActiveTab("library")}
@@ -157,10 +189,25 @@ export default function MobileAppLayout({
             onLogout={onLogout}
           />
         )}
-        {activeTab === "leaderboard" && <MobileLeaderboard user={user} />}
+        {activeTab === "rewards" && (
+          <MobileRewards
+            user={user}
+            accessToken={accessToken}
+            onRefreshUser={() => void refreshUserProfile()}
+            onPointsUpdated={(points) => setUser((previous) => ({ ...previous, points, pointsAvailable: true }))}
+          />
+        )}
+        {activeTab === "leaderboard" && (
+          <MobileLeaderboard
+            user={user}
+            accessToken={accessToken}
+            onRankResolved={(rank) => setUser((previous) => (previous.rank === rank ? previous : { ...previous, rank }))}
+          />
+        )}
         {activeTab === "profile" && (
           <Profile
             user={user}
+            accessToken={accessToken}
             onEdit={() => setIsEditProfileOpen(true)}
             onLogout={onLogout}
           />
@@ -168,7 +215,14 @@ export default function MobileAppLayout({
         {activeTab === "achievement" && <Achievement user={user} />}
         {activeTab === "notifications" && <Notifications />}
         {activeTab === "settings" && <SettingsPage />}
-        {activeTab === "patungan" && <MobilePatungan userId={userId} user={user} onRefreshUser={refreshUserProfile} />}
+        {activeTab === "patungan" && (
+          <MobilePatungan
+            userId={userId}
+            user={user}
+            accessToken={accessToken}
+            onRefreshUser={() => void refreshUserProfile()}
+          />
+        )}
         {hasOpenedStudy && (
           <div className={activeTab === "study" ? "block" : "hidden"} aria-hidden={activeTab !== "study"}>
             <MobileStudyTracker userId={userId} user={user} accessToken={accessToken} onRefreshUser={refreshUserProfile} isActive={activeTab === "study"} />
@@ -176,9 +230,9 @@ export default function MobileAppLayout({
         )}
       </div>
 
-      {/* Bottom Floating Navigation Bar (Screenshots 3, 4, 5) */}
+      {/* Bottom Floating Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl py-2 px-4">
-        <div className="mx-auto flex w-full max-w-md items-center justify-around">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-around">
           <NavButton
             id="tab_home"
             active={activeTab === "home"}
@@ -204,6 +258,14 @@ export default function MobileAppLayout({
             label="Gami-Study"
           />
           <NavButton
+            id="tab_reward"
+            active={activeTab === "rewards"}
+            onClick={() => setActiveTab("rewards")}
+            icon={<Gift className="w-5 h-5" />}
+            label="Reward"
+          />
+          <NavButton
+            id="tab_profile"
             active={activeTab === "profile"}
             onClick={() => setActiveTab("profile")}
             icon={<User className="w-5 h-5" />}
@@ -213,69 +275,67 @@ export default function MobileAppLayout({
       </div>
 
       {isEditProfileOpen && (
-          <EditProfileModal
-            isOpen={isEditProfileOpen}
-            user={user}
-            onClose={() => setIsEditProfileOpen(false)}
-            onSave={async (updatedUser) => {
-              if (!userId || !accessToken) throw new Error("Silakan masuk kembali sebelum mengubah profil.");
-              const payload = buildProfileUpdatePayload({
-                userId,
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          user={user}
+          onClose={() => setIsEditProfileOpen(false)}
+          onSave={async (updatedUser) => {
+            if (!userId || !accessToken) throw new Error("Silakan masuk kembali sebelum mengubah profil.");
+            const payload = buildProfileUpdatePayload({
+              userId,
+              name: updatedUser.name,
+              phone: updatedUser.phone,
+              avatar: updatedUser.avatar,
+            });
+            let sync: "synced" | "local" = "local";
+            let fatalError: Error | null = null;
+            let serverUser: unknown = null;
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify(payload),
+              });
+              const data = await response.json().catch(() => null);
+              if (response.ok) {
+                if (!data?.user || String(data.user.id) !== userId) {
+                  fatalError = new Error("Data profil hasil penyimpanan belum tersedia.");
+                } else {
+                  serverUser = data.user;
+                  sync = "synced";
+                }
+              } else if (response.status === 401 || response.status === 403) {
+                sync = "local";
+              } else {
+                fatalError = new Error(data?.message || "Perubahan profil belum dapat disimpan.");
+              }
+            } catch {
+              sync = "local";
+            }
+            if (fatalError) throw fatalError;
+            if (sync === "synced") {
+              clearProfileFallback(userId);
+              setUser((previous) => normalizeUserProfile(serverUser, previous));
+            } else {
+              writeProfileFallback(userId, {
                 name: updatedUser.name,
                 phone: updatedUser.phone,
                 avatar: updatedUser.avatar,
               });
-              let sync: "synced" | "local" = "local";
-              let fatalError: Error | null = null;
-              let serverUser: unknown = null;
-              try {
-                const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
-                  method: "PUT",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${accessToken}`,
-                  },
-                  body: JSON.stringify(payload),
-                });
-                const data = await response.json().catch(() => null);
-                if (response.ok) {
-                  if (!data?.user || String(data.user.id) !== userId) {
-                    fatalError = new Error("Data profil hasil penyimpanan belum tersedia.");
-                  } else {
-                    serverUser = data.user;
-                    sync = "synced";
-                  }
-                } else if (response.status === 401 || response.status === 403) {
-                  // Server belum mengizinkan akun ini mengubah profil — simpan di perangkat.
-                  sync = "local";
-                } else {
-                  fatalError = new Error(data?.message || "Perubahan profil belum dapat disimpan.");
-                }
-              } catch {
-                // Jaringan gagal — simpan di perangkat agar perubahan tidak hilang.
-                sync = "local";
-              }
-              if (fatalError) throw fatalError;
-              if (sync === "synced") {
-                clearProfileFallback(userId);
-                setUser((previous) => normalizeUserProfile(serverUser, previous));
-              } else {
-                writeProfileFallback(userId, {
-                  name: updatedUser.name,
-                  phone: updatedUser.phone,
-                  avatar: updatedUser.avatar,
-                });
-                setUser((previous) => ({
-                  ...previous,
-                  name: updatedUser.name.trim(),
-                  phone: updatedUser.phone ?? "",
-                  avatar: updatedUser.avatar,
-                }));
-              }
-              return { synced: sync === "synced" };
-            }}
-          />
-        )}
+              setUser((previous) => ({
+                ...previous,
+                name: updatedUser.name.trim(),
+                phone: updatedUser.phone ?? "",
+                avatar: updatedUser.avatar,
+              }));
+            }
+            return { synced: sync === "synced" };
+          }}
+        />
+      )}
     </div>
   );
 }
