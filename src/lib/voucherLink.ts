@@ -18,24 +18,28 @@ export function resolveVoucherUrl(raw: unknown): string | null {
 }
 
 export const VOUCHER_URL: string | null = resolveVoucherUrl(
-  import.meta.env?.VITE_VOUCHER_URL || "http://localhost:5173/promo"
+  import.meta.env?.VITE_VOUCHER_URL
 );
 
-export const POINTLAB_URL: string | null = resolveVoucherUrl(
-  import.meta.env?.VITE_POINTLAB_URL || "http://localhost:5173"
-);
+export const DEFAULT_POINTLAB_URL = "https://point.ngolab.online";
+export const LOCAL_POINTLAB_URL = "http://localhost:5173";
+
+export const POINTLAB_URL: string =
+  resolveVoucherUrl(import.meta.env?.VITE_POINTLAB_URL) ||
+  ((import.meta.env as { DEV?: boolean } | undefined)?.DEV ? LOCAL_POINTLAB_URL : DEFAULT_POINTLAB_URL);
 
 export function buildPointLabSsoUrl(
   targetUrl: string | null = VOUCHER_URL,
   accessToken?: string | null,
 ): string | null {
-  if (!targetUrl) return null;
-  if (!accessToken || !accessToken.trim()) return targetUrl;
+  const urlToUse = targetUrl || (POINTLAB_URL ? `${POINTLAB_URL}/promo` : null);
+  if (!urlToUse) return null;
+  if (!accessToken || !accessToken.trim()) return urlToUse;
   try {
-    const parsed = new URL(targetUrl);
+    const parsed = new URL(urlToUse);
     parsed.hash = `token=${encodeURIComponent(accessToken.trim())}`;
     return parsed.toString();
   } catch {
-    return targetUrl;
+    return urlToUse;
   }
 }

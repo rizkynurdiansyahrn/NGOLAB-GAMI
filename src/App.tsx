@@ -13,6 +13,10 @@ import type { AppUser } from './data/appData';
 import { API_BASE_URL } from './lib/api';
 import { normalizeUserProfile } from './lib/userProfile';
 import {
+  redirectToPointLabAuth,
+  extractTokenFromLocationHash,
+} from './lib/pointlabSso';
+import {
   loadAuthSession,
   saveAuthSession,
   clearAuthSession,
@@ -23,27 +27,20 @@ type MobileAppState = 'landing' | 'login' | 'hub' | 'playing';
 function consumeSsoTokenFromLocation(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const hashRaw = window.location.hash.startsWith('#')
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    const hashParams = new URLSearchParams(hashRaw);
+    const fromHash = extractTokenFromLocationHash(window.location.hash);
     const searchParams = new URLSearchParams(window.location.search);
-    const token = (
-      hashParams.get('token') ||
-      hashParams.get('sso_token') ||
+    const fromSearch = (
       searchParams.get('token') ||
       searchParams.get('sso_token') ||
       ''
     ).trim();
+    const token = fromHash || fromSearch || null;
     if (!token) return null;
 
-    hashParams.delete('token');
-    hashParams.delete('sso_token');
     searchParams.delete('token');
     searchParams.delete('sso_token');
     const cleanSearch = searchParams.toString();
-    const cleanHash = hashParams.toString();
-    const cleanUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}${cleanHash ? `#${cleanHash}` : ''}`;
+    const cleanUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`;
     window.history.replaceState({}, document.title, cleanUrl);
     return token;
   } catch {
@@ -105,11 +102,16 @@ export default function App() {
   const toHub = () => setState('hub');
 
   const openAuth = (tab: 'login' | 'register') => {
-    setAuthTab(tab);
-    toLogin();
+    // Pengguna langsung diarahkan ke portal login/register resmi PointLab
+    redirectToPointLabAuth(tab);
   };
   
   const startGame = (gameId: string) => {
+    // Aturan bisnis: hanya member aktif yang dapat memainkan fitur mini game
+    if (!currentUser) {
+      redirectToPointLabAuth('login');
+      return;
+    }
     setActiveGame(gameId);
     setState('playing');
   };

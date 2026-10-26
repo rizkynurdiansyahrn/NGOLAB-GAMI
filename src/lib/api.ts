@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "https://geasteats.ngolab.online";
+const DEFAULT_API_BASE_URL = "https://point.ngolab.online";
 
 export const REMOTE_API_BASE_URL = (
   import.meta.env?.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
