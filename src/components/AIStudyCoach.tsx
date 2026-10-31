@@ -104,6 +104,10 @@ export default function AIStudyCoach({
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [showKmsModal, setShowKmsModal] = useState(false);
+  const [kmsDocs, setKmsDocs] = useState<Array<{ id: string; title: string; category?: string; fileType?: string; year?: number; summary?: string }>>([]);
+  const [loadingKmsDocs, setLoadingKmsDocs] = useState(false);
+  const [kmsDocStatus, setKmsDocStatus] = useState("");
   const [preview, setPreview] = useState<{
     sourceId: string;
     quote?: string;
@@ -363,6 +367,57 @@ export default function AIStudyCoach({
     );
   };
 
+  const fetchKmsDocuments = async () => {
+    setLoadingKmsDocs(true);
+    setKmsDocStatus("");
+    try {
+      const res = await fetch("/api/study-coach/kms/documents");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.documents)) {
+        setKmsDocs(data.documents);
+        setShowKmsModal(true);
+      } else {
+        setSourceError(data.error || "Gagal memuat dokumen dari KMS Repositori.");
+      }
+    } catch {
+      setSourceError("Gagal menghubungi repositori KMS.");
+    } finally {
+      setLoadingKmsDocs(false);
+    }
+  };
+
+  const addKmsDocumentToNotebook = async (doc: { id: string; title: string; fileType?: string }) => {
+    if (sources.length >= MAX_SOURCES) {
+      setSourceError(`Maksimal ${MAX_SOURCES} sumber per materi belajar.`);
+      return;
+    }
+    setKmsDocStatus(`Mengambil konten ${doc.title}…`);
+    try {
+      const res = await fetch(`/api/study-coach/kms/documents/${doc.id}/content`);
+      const data = await res.json();
+      if (!data.success || typeof data.content !== "string") {
+        setSourceError(data.error || "Konten dokumen belum dapat dibaca.");
+        return;
+      }
+      const title = data.document?.title || doc.title || "Dokumen KMS";
+      const newSource: StudySource = {
+        id: doc.id,
+        name: title,
+        kind: (doc.fileType?.toLowerCase() === "pdf" ? "pdf" : "txt") as StudySource["kind"],
+        sections: [{ text: data.content, page: 1 }],
+        enabled: true,
+      };
+      updateSources([...sources.filter((s) => s.id !== doc.id), newSource]);
+      setShowKmsModal(false);
+      setKmsDocStatus("");
+      setSourceError("");
+    } catch {
+      setSourceError("Gagal memuat dokumen KMS ke materi belajar.");
+    } finally {
+      setKmsDocStatus("");
+    }
+  };
+
   const sendMessage = async (rawMessage: string) => {
     const message = rawMessage.trim();
     if (!message || busy || requestRef.current || uploadRef.current) return;
@@ -608,6 +663,65 @@ export default function AIStudyCoach({
                   Memuat materi tersimpan…
                 </p>
               )}
+              
+              {showKmsModal && (
+                <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4 text-indigo-600" />
+                        Repositori KMS BUMD (Gami_Study)
+                      </h4>
+                      <p className="text-[10px] text-indigo-700">Pilih dokumen resmi untuk dipelajari bersama AI Study Coach</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowKmsModal(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {kmsDocStatus && (
+                    <p className="text-xs text-indigo-700 font-semibold flex items-center gap-1.5">
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      {kmsDocStatus}
+                    </p>
+                  )}
+
+                  <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                    {kmsDocs.length === 0 ? (
+                      <p className="text-center text-xs text-slate-500 py-3">Belum ada dokumen di repositori project.</p>
+                    ) : (
+                      kmsDocs.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 p-2.5 shadow-xs"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-800 truncate">{doc.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
+                              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold uppercase">{doc.fileType || "TXT"}</span>
+                              {doc.category && <span>{doc.category}</span>}
+                              {doc.year && <span>({doc.year})</span>}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={busy || sources.some((s) => s.id === doc.id)}
+                            onClick={() => void addKmsDocumentToNotebook(doc)}
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400"
+                          >
+                            {sources.some((s) => s.id === doc.id) ? "Sudah Aktif" : "Gunakan"}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
               {showNoteForm && (
                 <form
                   onSubmit={addNote}

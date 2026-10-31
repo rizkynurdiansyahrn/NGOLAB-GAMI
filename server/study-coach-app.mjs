@@ -7,6 +7,7 @@ import {
 } from "../shared/studyCoachLimits.mjs";
 import { extractSourceFile } from "./source-extraction.mjs";
 import { createRagStudyClient, RagServiceError } from "./rag-study-client.mjs";
+import { createKmsStudyClient, KmsServiceError } from "./kms-study-client.mjs";
 import {
   validateSources,
   retrievePassages,
@@ -16,7 +17,11 @@ import {
 export function createStudyCoachApp(env = process.env) {
   const app = express();
   const rag = createRagStudyClient(env);
-  app.locals.closeStudyCoach = () => rag.close();
+  const kms = createKmsStudyClient(env);
+  app.locals.closeStudyCoach = () => {
+    rag.close();
+    kms.close();
+  };
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: "2mb" }));
@@ -37,7 +42,7 @@ export function createStudyCoachApp(env = process.env) {
 
     if (!current || current.resetAt <= now) {
       rateLimitWindows.set(clientKey, { count: 1, resetAt: now + 60_000 });
-    } else if (current.count >= 15) {
+    } else if (current.count >= 30) {
       res
         .status(429)
         .json({
@@ -62,14 +67,81 @@ export function createStudyCoachApp(env = process.env) {
     return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
   }
 
+  // Health check endpoint dengan rincian KMS BUMD Multi-Tenant RAG
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
       studyCoachConfigured: true,
-      studyCoachMode: rag.configured ? "RAG_ONLINE" : "LOCAL_GROUNDING",
+      studyCoachMode: kms.configured
+        ? "KMS_RAG_ONLINE"
+        : rag.configured
+          ? "RAG_ONLINE"
+          : "LOCAL_GROUNDING",
+      kmsProvider: "KMS BUMD Multi-Tenant RAG",
+      organization: kms.organizationName,
+      organizationId: kms.organizationId,
+      timestamp: new Date().toISOString(),
     });
   });
 
+  // Cek Status Layanan AI RAG KMS
+  app.get("/api/study-coach/kms/status", async (_req, res) => {
+    try {
+      const status = await kms.checkStatus();
+      res.json({
+        success: true,
+        configured: kms.configured,
+        organizationId: kms.organizationId,
+        organizationName: kms.organizationName,
+        baseUrl: kms.baseUrl,
+        ...status,
+      });
+    } catch (err) {
+      res.status(502).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  });
+
+  // Ambil daftar dokumen di repositori KMS project Gami_Study
+  app.get("/api/study-coach/kms/documents", async (req, res) => {
+    try {
+      const orgId = req.query.organizationId || kms.organizationId;
+      const documents = await kms.listDocuments(orgId);
+      res.json({
+        success: true,
+        organizationId: orgId,
+        organizationName: kms.organizationName,
+        documents,
+      });
+    } catch (err) {
+      res.status(502).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  });
+
+  // Ambil isi dokumen dari KMS Repositori untuk dimuat langsung sebagai materi aktif
+  app.get("/api/study-coach/kms/documents/:id/content", async (req, res) => {
+    try {
+      const doc = await kms.getDocument(req.params.id);
+      const text = await kms.getDocumentContent(req.params.id);
+      res.json({
+        success: true,
+        document: doc,
+        content: text,
+      });
+    } catch (err) {
+      res.status(502).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  });
+
+  // Unggah file materi lokal + Otomatis Terindeks ke KMS BUMD RAG & Edge CDN
   app.post(
     "/api/study-coach/sources/file",
     studyCoachRateLimit,
@@ -89,7 +161,34 @@ export function createStudyCoachApp(env = process.env) {
         activeExtractions += 1;
         try {
           const source = await extractSourceFile(req.file);
-          res.json({ source: { ...source, id: randomUUID(), enabled: true } });
+
+          // Asinkron: Unggah dan indeks berkas ke KMS BUMD Multi-Tenant RAG
+          if (kms.configured) {
+            kms
+              .uploadDocument({
+                fileBuffer: req.file.buffer,
+                fileName: req.file.originalname,
+                title: req.file.originalname.replace(/\.[^/.]+$/, ""),
+                category: "Materi Kuliah",
+                department: "Gami Study",
+                notes: `Diunggah via Gami-Study (${new Date().toLocaleDateString("id-ID")})`,
+              })
+              .then((doc) => {
+                console.log(`[KMS] Dokumen "${doc.title}" berhasil diindeks ke KMS RAG (${doc.id})`);
+              })
+              .catch((err) => {
+                console.warn("[KMS Upload Notice]", err.message);
+              });
+          }
+
+          res.json({
+            source: {
+              ...source,
+              id: randomUUID(),
+              enabled: true,
+              kmsUploaded: kms.configured,
+            },
+          });
         } catch (error) {
           if (error?.code?.startsWith("EXTRACTOR_")) {
             console.error("Study Coach file extraction failed:", {
@@ -112,6 +211,7 @@ export function createStudyCoachApp(env = process.env) {
     },
   );
 
+  // Tanya Jawab Cerdas Berbasis Dokumen RAG KMS
   app.post("/api/study-coach", studyCoachRateLimit, async (req, res) => {
     let sources;
     try {
@@ -166,88 +266,67 @@ export function createStudyCoachApp(env = process.env) {
       history,
     );
 
-    // Local grounding fallback jika cloud RAG belum dikonfigurasi
-    if (!rag.configured) {
-      if (passages.length > 0) {
-        const excerpt = passages.slice(0, 3).map((p, i) => `[Kutipan ${i + 1}] "${p.text}"`).join("\n\n");
-        const answer = `Berdasarkan materi belajar yang kamu lampirkan untuk topik "${taskTitle || 'Tugas'}":\n\n${excerpt}\n\n💡 Kamu dapat menanyakan rincian lebih lanjut dari bagian materi di atas.`;
-        const citations = passages.slice(0, 3).map(p => ({
-          sourceId: p.sourceId,
-          quote: p.text.slice(0, 80),
-        }));
-        res.json({
-          answer,
-          citations,
-          coverage: { usedPassages: Math.min(passages.length, 3), totalPassages },
-        });
-        return;
-      }
-
-      res.json({
-        answer: `Belum menemukan kutipan yang relevan dengan pertanyaan "${message}" di materi yang kamu pilih. Coba tambahkan catatan atau unggah file materi terkait di panel samping.`,
-        citations: [],
-        coverage: { usedPassages: 0, totalPassages },
-      });
-      return;
-    }
     const requestController = new AbortController();
     res.on("close", () => {
       if (!res.writableEnded) requestController.abort();
     });
 
-    try {
-      const payload = await rag.answer({
-        message, history, passages, taskTitle, durationMinutes,
-        signal: AbortSignal.any([
-          AbortSignal.timeout(270_000),
-          requestController.signal,
-        ]),
-      });
-
-      let grounded;
+    // 1. Prioritas Utama: Menggunakan KMS BUMD Multi-Tenant RAG AI
+    if (kms.configured) {
       try {
-        grounded = validateGroundedAnswer(payload, passages);
-      } catch (error) {
-        res.status(502).json({ error: error.message });
-        return;
-      }
-
-      res.json({
-        ...grounded,
-        coverage: { usedPassages: passages.length, totalPassages },
-      });
-    } catch (error) {
-      if (requestController.signal.aborted) return;
-      if (error instanceof RagServiceError) {
-        console.error("Study Coach RAG request failed:", {
-          code: error.code,
-          upstreamStatus: error.upstreamStatus,
-          requestId: error.requestId,
+        const payload = await kms.answer({
+          message,
+          taskTitle,
+          durationMinutes,
+          history,
+          passages,
+          sources,
+          signal: AbortSignal.any([
+            AbortSignal.timeout(60_000),
+            requestController.signal,
+          ]),
         });
-        res.status(error.status).json({ error: error.message });
-        return;
-      }
-      console.error(
-        "Study Coach RAG request failed:",
-        error instanceof Error ? error.name : "UnknownError",
-      );
 
-      if (error instanceof Error && (error.name === "TimeoutError" || error.cause?.name === "TimeoutError")) {
-        res
-          .status(504)
-          .json({
-            error: "Layanan AI membutuhkan waktu terlalu lama untuk menyiapkan materi atau jawaban. Coba lagi sebentar.",
-          });
-        return;
-      }
-
-      res
-        .status(502)
-        .json({
-          error:
-            "Study Coach gagal menghubungi server RAG. Periksa koneksi atau coba lagi sebentar.",
+        res.json({
+          ...payload,
+          coverage: { usedPassages: passages.length, totalPassages },
         });
+        return;
+      } catch (err) {
+        console.warn("KMS RAG query failed or timed out, falling back to local/legacy grounding:", err.message);
+      }
     }
+
+    // 2. Fallback: Local Grounding BM25 (Jaminan Selalu Bisa Menjawab secara Offline)
+    if (passages.length > 0) {
+      const excerpt = passages
+        .slice(0, 3)
+        .map((p, i) => `[Kutipan ${i + 1}] "${p.text}"`)
+        .join("\n\n");
+      const answer = `Berdasarkan materi belajar yang kamu lampirkan untuk topik "${taskTitle || "Tugas"}":\n\n${excerpt}\n\n💡 Kamu dapat menanyakan rincian lebih lanjut dari bagian materi di atas.`;
+      const citations = passages.slice(0, 3).map((p) => ({
+        sourceId: p.sourceId,
+        sourceName: p.sourceName,
+        location: p.location,
+        quote: p.text.slice(0, 80),
+      }));
+      res.json({
+        answer,
+        citations,
+        notFound: false,
+        coverage: { usedPassages: Math.min(passages.length, 3), totalPassages },
+        model: "local-bm25-grounding",
+      });
+      return;
+    }
+
+    res.json({
+      answer: `Belum menemukan kutipan yang relevan dengan pertanyaan "${message}" di materi yang kamu pilih. Coba tambahkan catatan atau unggah file materi terkait di panel samping.`,
+      citations: [],
+      notFound: true,
+      coverage: { usedPassages: 0, totalPassages },
+      model: "local-bm25-grounding",
+    });
   });
 
   app.use((error, _req, res, next) => {

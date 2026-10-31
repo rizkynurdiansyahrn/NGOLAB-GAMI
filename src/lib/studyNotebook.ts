@@ -30,6 +30,8 @@ export interface CoachMessage {
   text: string;
   citations?: StudyCitation[];
   notFound?: boolean;
+  model?: string;
+  grounded?: boolean;
 }
 
 export interface StudyNotebook {
@@ -141,6 +143,8 @@ export function normalizeNotebook(value: unknown): StudyNotebook {
         text: message.text.slice(0, 10_000),
         citations,
         notFound: message.notFound === true,
+        model: typeof message.model === "string" ? message.model : undefined,
+        grounded: typeof message.grounded === "boolean" ? message.grounded : undefined,
       },
     ];
   });
