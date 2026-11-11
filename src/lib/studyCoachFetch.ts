@@ -104,3 +104,15 @@ export async function fetchWithRetry(
   // Loop di atas selalu return atau throw; baris ini hanya penjaga tipe.
   throw new DOMException("Permintaan tidak dapat diselesaikan.", "AbortError");
 }
+
+/**
+ * Header otentikasi Study Coach. Token dibaca dari VITE_STUDY_COACH_TOKEN
+ * (variabel VITE_ diekspos ke browser; token server ada di STUDY_COACH_TOKEN
+ * di sisi Express dan nilainya sama). Mengembalikan header kosong bila token
+ * tidak diset, supaya panggilan tetap berjalan di lingkungan tanpa token.
+ */
+export function studyCoachHeaders(): Record<string, string> {
+  const token = import.meta.env?.VITE_STUDY_COACH_TOKEN;
+  if (typeof token !== "string" || !token.trim()) return {};
+  return { "x-study-coach-token": token.trim() };
+}

@@ -10,7 +10,7 @@ export class KmsServiceError extends Error {
 
 export function createKmsStudyClient(env = process.env) {
   const baseUrl = (env.KMS_RAG_BASE_URL || env.RAG_API_URL || "https://ragkms.aiones.app").replace(/\/+$/, "");
-  const apiKey = (env.KMS_RAG_API_KEY || env.RAG_API_KEY || "kms_ak_fd4b65c4e802535dc16c6eb4fbd4c7c7eb518656e80f5f96").trim();
+  const apiKey = (env.KMS_RAG_API_KEY || env.RAG_API_KEY || "").trim();
   const organizationId = env.KMS_RAG_ORG_ID || "org-prj-gamistudy-4067";
   const organizationName = env.KMS_RAG_ORG_NAME || "Gami_Study";
 

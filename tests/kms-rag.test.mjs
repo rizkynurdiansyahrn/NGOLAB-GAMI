@@ -1,16 +1,18 @@
+import "dotenv/config";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createKmsStudyClient } from "../server/kms-study-client.mjs";
 import { createStudyCoachApp } from "../server/study-coach-app.mjs";
 
+const apiKey = process.env.KMS_RAG_API_KEY?.trim() || "";
 const testEnv = {
   KMS_RAG_BASE_URL: "https://ragkms.aiones.app",
-  KMS_RAG_API_KEY: "kms_ak_fd4b65c4e802535dc16c6eb4fbd4c7c7eb518656e80f5f96",
+  KMS_RAG_API_KEY: apiKey,
   KMS_RAG_ORG_ID: "org-prj-gamistudy-4067",
   KMS_RAG_ORG_NAME: "Gami_Study",
 };
 
-test("KMS Client: Cek konfigurasi dan status live layanan KMS BUMD RAG", async () => {
+test("KMS Client: Cek konfigurasi dan status live layanan KMS BUMD RAG", { skip: !apiKey }, async () => {
   const kms = createKmsStudyClient(testEnv);
   assert.equal(kms.configured, true);
   assert.equal(kms.organizationId, "org-prj-gamistudy-4067");
@@ -21,7 +23,7 @@ test("KMS Client: Cek konfigurasi dan status live layanan KMS BUMD RAG", async (
   assert.equal(status.service, "Multi-Tenant RAG & Jev AI");
 });
 
-test("KMS Client: Mengambil daftar dokumen repositori project Gami_Study", async () => {
+test("KMS Client: Mengambil daftar dokumen repositori project Gami_Study", { skip: !apiKey }, async () => {
   const kms = createKmsStudyClient(testEnv);
   const docs = await kms.listDocuments();
   assert.ok(Array.isArray(docs));
@@ -32,7 +34,7 @@ test("KMS Client: Mengambil daftar dokumen repositori project Gami_Study", async
   assert.ok(titles.some(t => t.includes("Modul Pemrograman Web Ngolab")));
 });
 
-test("KMS Client: Membaca teks konten dokumen dari KMS Repositori", async () => {
+test("KMS Client: Membaca teks konten dokumen dari KMS Repositori", { skip: !apiKey }, async () => {
   const kms = createKmsStudyClient(testEnv);
   const docs = await kms.listDocuments();
   const targetDoc = docs.find(d => d.title.includes("Modul Pemrograman Web Ngolab"));
@@ -45,7 +47,7 @@ test("KMS Client: Membaca teks konten dokumen dari KMS Repositori", async () => 
   assert.ok(text.includes("MySQL dan transaksi atomik"));
 });
 
-test("KMS Client: Menjawab pertanyaan studi secara grounded dengan rujukan sitasi (DeepSeek)", async () => {
+test("KMS Client: Menjawab pertanyaan studi secara grounded dengan rujukan sitasi (DeepSeek)", { skip: !apiKey }, async () => {
   const kms = createKmsStudyClient(testEnv);
   const dummySources = [
     {
@@ -80,7 +82,7 @@ test("KMS Client: Menjawab pertanyaan studi secara grounded dengan rujukan sitas
   assert.ok(firstCit.quote && firstCit.quote.length >= 12);
 });
 
-test("Express API: Endpoint Health, Status, dan Dokumen KMS", async () => {
+test("Express API: Endpoint Health, Status, dan Dokumen KMS", { skip: !apiKey }, async () => {
   const app = createStudyCoachApp(testEnv);
   const server = app.listen(0);
   const port = server.address().port;
@@ -93,7 +95,7 @@ test("Express API: Endpoint Health, Status, dan Dokumen KMS", async () => {
     const health = await healthRes.json();
     assert.equal(health.ok, true);
     assert.equal(health.studyCoachMode, "KMS_RAG_ONLINE");
-    assert.equal(health.organization, "Gami_Study");
+    assert.equal(health.organization, undefined);
 
     // 2. KMS status
     const statusRes = await fetch(`${baseUrl}/api/study-coach/kms/status`);

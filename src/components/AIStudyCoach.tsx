@@ -32,7 +32,7 @@ import {
   type StudySource,
   type StudyCitation,
 } from "../lib/studyNotebook";
-import { fetchWithRetry } from "../lib/studyCoachFetch";
+import { fetchWithRetry, studyCoachHeaders } from "../lib/studyCoachFetch";
 
 interface AIStudyCoachProps {
   taskTitle?: string;
@@ -275,7 +275,7 @@ export default function AIStudyCoach({
         // percobaan ulang otomatis yang sama seperti pengiriman pertanyaan.
         const response = await fetchWithRetry(
           "/api/study-coach/sources/file",
-          { method: "POST", body },
+          { method: "POST", body, headers: studyCoachHeaders() },
           {
             attempts: 2,
             timeoutMs: 90_000,
@@ -371,7 +371,7 @@ export default function AIStudyCoach({
     setLoadingKmsDocs(true);
     setKmsDocStatus("");
     try {
-      const res = await fetch("/api/study-coach/kms/documents");
+      const res = await fetch("/api/study-coach/kms/documents", { headers: studyCoachHeaders() });
       const data = await res.json();
       if (data.success && Array.isArray(data.documents)) {
         setKmsDocs(data.documents);
@@ -393,7 +393,7 @@ export default function AIStudyCoach({
     }
     setKmsDocStatus(`Mengambil konten ${doc.title}…`);
     try {
-      const res = await fetch(`/api/study-coach/kms/documents/${doc.id}/content`);
+      const res = await fetch(`/api/study-coach/kms/documents/${doc.id}/content`, { headers: studyCoachHeaders() });
       const data = await res.json();
       if (!data.success || typeof data.content !== "string") {
         setSourceError(data.error || "Konten dokumen belum dapat dibaca.");
@@ -443,7 +443,7 @@ export default function AIStudyCoach({
         "/api/study-coach",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...studyCoachHeaders() },
           body: JSON.stringify({
             message,
             taskTitle: taskTitle ?? "",

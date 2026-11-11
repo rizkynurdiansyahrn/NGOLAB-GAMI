@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import {
   MAX_FILE_BYTES,
   MAX_QUESTION_CHARACTERS,
@@ -63,29 +63,59 @@ export function createStudyCoachApp(env = process.env) {
     next();
   }
 
+  const studyCoachToken = typeof env.STUDY_COACH_TOKEN === "string"
+    ? env.STUDY_COACH_TOKEN.trim()
+    : "";
+  let authWarningShown = false;
+
+  function studyCoachAuth(req, res, next) {
+    if (!studyCoachToken) {
+      if (!authWarningShown) {
+        authWarningShown = true;
+        console.warn(
+          "[Study Coach] STUDY_COACH_TOKEN tidak diset. Endpoint berjalan TANPA otentikasi — isi STUDY_COACH_TOKEN di .env untuk produksi.",
+        );
+      }
+      return next();
+    }
+    const headerToken = req.headers["x-study-coach-token"];
+    const provided = typeof headerToken === "string" ? headerToken : "";
+    const authHeader = req.headers.authorization;
+    const bearer =
+      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice("Bearer ".length)
+        : "";
+    const expected = Buffer.from(studyCoachToken);
+    const matches = (value) =>
+      value.length === expected.length &&
+      timingSafeEqual(Buffer.from(value), expected);
+    if (matches(provided) || matches(bearer)) return next();
+    res.status(401).json({
+      error: "Token Study Coach tidak valid atau tidak disertakan.",
+    });
+  }
+
   function asShortText(value, maxLength) {
     return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
   }
+
 
   // Health check endpoint dengan rincian KMS BUMD Multi-Tenant RAG
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
-      studyCoachConfigured: true,
-      studyCoachMode: kms.configured
-        ? "KMS_RAG_ONLINE"
-        : rag.configured
-          ? "RAG_ONLINE"
+      studyCoachConfigured: rag.configured || kms.configured,
+      studyCoachMode: rag.configured
+        ? "RAG_ONLINE"
+        : kms.configured
+          ? "KMS_RAG_ONLINE"
           : "LOCAL_GROUNDING",
-      kmsProvider: "KMS BUMD Multi-Tenant RAG",
-      organization: kms.organizationName,
-      organizationId: kms.organizationId,
       timestamp: new Date().toISOString(),
     });
   });
 
   // Cek Status Layanan AI RAG KMS
-  app.get("/api/study-coach/kms/status", async (_req, res) => {
+  app.get("/api/study-coach/kms/status", studyCoachAuth, studyCoachRateLimit, async (_req, res) => {
     try {
       const status = await kms.checkStatus();
       res.json({
@@ -93,7 +123,6 @@ export function createStudyCoachApp(env = process.env) {
         configured: kms.configured,
         organizationId: kms.organizationId,
         organizationName: kms.organizationName,
-        baseUrl: kms.baseUrl,
         ...status,
       });
     } catch (err) {
@@ -105,7 +134,7 @@ export function createStudyCoachApp(env = process.env) {
   });
 
   // Ambil daftar dokumen di repositori KMS project Gami_Study
-  app.get("/api/study-coach/kms/documents", async (req, res) => {
+  app.get("/api/study-coach/kms/documents", studyCoachAuth, studyCoachRateLimit, async (req, res) => {
     try {
       const orgId = req.query.organizationId || kms.organizationId;
       const documents = await kms.listDocuments(orgId);
@@ -124,7 +153,7 @@ export function createStudyCoachApp(env = process.env) {
   });
 
   // Ambil isi dokumen dari KMS Repositori untuk dimuat langsung sebagai materi aktif
-  app.get("/api/study-coach/kms/documents/:id/content", async (req, res) => {
+  app.get("/api/study-coach/kms/documents/:id/content", studyCoachAuth, studyCoachRateLimit, async (req, res) => {
     try {
       const doc = await kms.getDocument(req.params.id);
       const text = await kms.getDocumentContent(req.params.id);
@@ -144,6 +173,7 @@ export function createStudyCoachApp(env = process.env) {
   // Unggah file materi lokal + Otomatis Terindeks ke KMS BUMD RAG & Edge CDN
   app.post(
     "/api/study-coach/sources/file",
+    studyCoachAuth,
     studyCoachRateLimit,
     (req, res, next) => {
       upload.single("file")(req, res, async (error) => {
@@ -212,7 +242,7 @@ export function createStudyCoachApp(env = process.env) {
   );
 
   // Tanya Jawab Cerdas Berbasis Dokumen RAG KMS
-  app.post("/api/study-coach", studyCoachRateLimit, async (req, res) => {
+  app.post("/api/study-coach", studyCoachAuth, studyCoachRateLimit, async (req, res) => {
     let sources;
     try {
       sources = validateSources(req.body?.sources);
@@ -271,29 +301,29 @@ export function createStudyCoachApp(env = process.env) {
       if (!res.writableEnded) requestController.abort();
     });
 
-    // 1. Prioritas Utama: Menggunakan KMS BUMD Multi-Tenant RAG AI
-    if (kms.configured) {
+    // 1. Prioritas Utama: Layanan RAG (rag.aiones.app) dengan alur transien
+    if (rag.configured) {
       try {
-        const payload = await kms.answer({
+        const payload = await rag.answer({
           message,
-          taskTitle,
-          durationMinutes,
           history,
           passages,
-          sources,
+          taskTitle,
+          durationMinutes,
           signal: AbortSignal.any([
-            AbortSignal.timeout(60_000),
+            AbortSignal.timeout(270_000),
             requestController.signal,
           ]),
         });
 
+        const grounded = validateGroundedAnswer(payload, passages);
         res.json({
-          ...payload,
+          ...grounded,
           coverage: { usedPassages: passages.length, totalPassages },
         });
         return;
       } catch (err) {
-        console.warn("KMS RAG query failed or timed out, falling back to local/legacy grounding:", err.message);
+        console.warn("RAG (rag.aiones.app) query failed, falling back to local grounding:", err.message);
       }
     }
 
