@@ -491,7 +491,7 @@ export default function NgolabSkySwipe({ onGameOver, onExit, onScoreChange }: Ga
             </motion.section>
           </motion.div>
         )}
-        {gameState === 'GAMEOVER' && (
+        {false && ( /* ringkasan game-over ditangani GameContainerMobile */
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

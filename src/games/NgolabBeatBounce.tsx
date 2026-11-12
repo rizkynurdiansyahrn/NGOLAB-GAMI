@@ -464,7 +464,7 @@ export default function NgolabBeatBounce({ onGameOver, onExit, onScoreChange }: 
           </motion.div>
         )}
 
-        {gameState === 'GAMEOVER' && (
+        {false && ( /* ringkasan game-over ditangani GameContainerMobile */
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

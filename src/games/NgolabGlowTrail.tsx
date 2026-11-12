@@ -220,7 +220,7 @@ export default function NgolabGlowTrail({ onGameOver, onExit, onScoreChange }: G
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-[#030611]/75 p-3 backdrop-blur-md sm:p-6">
             <motion.section
               initial={{ opacity: 0, y: 18, scale: 0.97 }}

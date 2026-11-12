@@ -459,7 +459,7 @@ export default function NgolabAstroDrift({ onGameOver, onExit, onScoreChange }: 
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

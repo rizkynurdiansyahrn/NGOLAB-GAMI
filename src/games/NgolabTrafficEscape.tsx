@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, CarFront, ChevronRight, CircleHelp, DoorOpen, Flag, RotateCcw, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, CarFront, ChevronRight, CircleHelp, DoorOpen, Flag, RotateCcw, Sparkles } from 'lucide-react';
 
 interface GameProps {
   onGameOver: (score: number) => void;
@@ -474,7 +474,7 @@ export default function NgolabTrafficEscape({ onGameOver, onExit, onScoreChange 
       </div>
 
       <AnimatePresence>
-        {(phase === 'START' || phase === 'LEVEL_CLEAR' || phase === 'LEVEL_FAILED' || phase === 'GAMEOVER') && (
+        {(phase === 'START' || phase === 'LEVEL_CLEAR' || phase === 'LEVEL_FAILED') && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-[#030817]/78 p-3 backdrop-blur-md sm:p-6"
@@ -483,10 +483,10 @@ export default function NgolabTrafficEscape({ onGameOver, onExit, onScoreChange 
               initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }}
               className="relative my-auto w-full max-w-[430px] overflow-hidden rounded-[28px] border border-sky-100/15 bg-[#111d31] p-5 text-center shadow-[0_28px_80px_rgba(0,0,0,0.55)] sm:rounded-[32px] sm:p-7"
             >
-              <div className={`pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full blur-2xl ${phase === 'GAMEOVER' ? 'bg-amber-300/12' : phase === 'LEVEL_FAILED' ? 'bg-rose-300/12' : 'bg-orange-300/12'}`} />
+              <div className={`pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full blur-2xl ${phase === 'LEVEL_FAILED' ? 'bg-rose-300/12' : 'bg-orange-300/12'}`} />
               <div className="relative">
-                <div className={`mx-auto mb-3 flex h-[68px] w-[68px] items-center justify-center rounded-[23px] border text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] ${phase === 'GAMEOVER' ? 'border-amber-100/20 bg-gradient-to-br from-amber-300/25 to-orange-400/10 text-amber-200' : phase === 'LEVEL_CLEAR' ? 'border-emerald-100/20 bg-gradient-to-br from-emerald-300/25 to-teal-400/10 text-emerald-200' : phase === 'LEVEL_FAILED' ? 'border-rose-100/20 bg-gradient-to-br from-rose-300/25 to-red-400/10 text-rose-200' : 'border-orange-100/20 bg-gradient-to-br from-orange-300/25 to-rose-400/10 text-orange-100'}`}>
-                  {phase === 'GAMEOVER' ? <Trophy className="h-8 w-8" /> : phase === 'LEVEL_CLEAR' ? <Sparkles className="h-8 w-8" /> : phase === 'LEVEL_FAILED' ? <RotateCcw className="h-8 w-8" /> : <CarFront className="h-9 w-9" />}
+                <div className={`mx-auto mb-3 flex h-[68px] w-[68px] items-center justify-center rounded-[23px] border text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] ${phase === 'LEVEL_CLEAR' ? 'border-emerald-100/20 bg-gradient-to-br from-emerald-300/25 to-teal-400/10 text-emerald-200' : phase === 'LEVEL_FAILED' ? 'border-rose-100/20 bg-gradient-to-br from-rose-300/25 to-red-400/10 text-rose-200' : 'border-orange-100/20 bg-gradient-to-br from-orange-300/25 to-rose-400/10 text-orange-100'}`}>
+                  {phase === 'LEVEL_CLEAR' ? <Sparkles className="h-8 w-8" /> : phase === 'LEVEL_FAILED' ? <RotateCcw className="h-8 w-8" /> : <CarFront className="h-9 w-9" />}
                 </div>
 
                 {phase === 'START' && (
@@ -566,21 +566,7 @@ export default function NgolabTrafficEscape({ onGameOver, onExit, onScoreChange 
                   </>
                 )}
 
-                {phase === 'GAMEOVER' && (
-                  <>
-                    <div className="mb-1 inline-flex rounded-full bg-amber-300/10 px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.16em] text-amber-200">Semua jalur terbuka</div>
-                    <h2 className="mt-2 text-3xl font-black tracking-tight text-white">Macet terurai!</h2>
-                    <p className="mt-2 text-xs leading-5 text-slate-400">Kamu berhasil membantu mobil merah melewati semua level.</p>
-                    <div className="my-5 rounded-[22px] border border-amber-200/10 bg-amber-300/[0.06] px-4 py-4">
-                      <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Skor akhir</div>
-                      <div className="mt-1 text-4xl font-black tabular-nums tracking-tight text-amber-200">{score.toLocaleString()}</div>
-                    </div>
-                    <button type="button" onClick={startGame} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-300 to-rose-400 px-5 py-3 text-sm font-black uppercase tracking-[0.1em] text-[#30140e] shadow-[0_10px_24px_rgba(248,111,77,0.2)] transition hover:brightness-105 active:scale-[0.98]">
-                      Main lagi <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button type="button" onClick={onExit} className="mt-2 h-10 w-full rounded-xl text-xs font-bold text-slate-400 transition hover:bg-white/[0.04] hover:text-white">Kembali ke menu</button>
-                  </>
-                )}
+
               </div>
             </motion.div>
           </motion.div>

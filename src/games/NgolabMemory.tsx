@@ -61,7 +61,7 @@ export default function NgolabMemory({ onGameOver, onExit, onScoreChange }: Game
   }, [gameState]);
 
   useEffect(() => {
-    if (gameState === 'GAMEOVER' && score > 0) {
+    if (gameState === 'GAMEOVER') {
       onGameOver(score);
     }
   }, [gameState]);
@@ -246,7 +246,7 @@ export default function NgolabMemory({ onGameOver, onExit, onScoreChange }: Game
         )}
 
         <AnimatePresence>
-          {(gameState === 'START' || gameState === 'GAMEOVER') && (
+          {(gameState === 'START') && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

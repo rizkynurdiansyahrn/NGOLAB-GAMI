@@ -53,7 +53,7 @@ export default function NgolabFitnessQuiz({ onGameOver, onExit, onScoreChange }:
   }, [gameState]);
 
   useEffect(() => {
-    if (gameState === 'GAMEOVER' && score > 0) {
+    if (gameState === 'GAMEOVER') {
       onGameOver(score);
     }
   }, [gameState]);
@@ -191,7 +191,7 @@ export default function NgolabFitnessQuiz({ onGameOver, onExit, onScoreChange }:
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -408,9 +408,8 @@ export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameP
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div
-            id={gameState === 'GAMEOVER' ? 'popup_game_over' : undefined}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

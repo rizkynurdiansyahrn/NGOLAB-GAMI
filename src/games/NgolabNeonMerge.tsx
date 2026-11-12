@@ -217,7 +217,7 @@ export default function NgolabNeonMerge({ onGameOver, onExit, onScoreChange }: G
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -608,7 +608,7 @@ export default function NgolabBurger({ onGameOver, onExit, onScoreChange }: Game
       )}
 
       <AnimatePresence>
-        {(gameState === 'START' || gameState === 'GAMEOVER') && (
+        {(gameState === 'START') && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 z-50 flex items-center justify-center bg-[#44261e]/45 p-4 backdrop-blur-[3px]"
