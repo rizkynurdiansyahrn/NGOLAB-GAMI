@@ -183,7 +183,7 @@ export default function LandingPage({
         id="navbar"
         className={`sticky top-0 z-50 transition-all duration-300 ${
           scrolled
-            ? "bg-white/90 backdrop-blur-md shadow-sm border-b border-slate-200/70"
+            ? "bg-white/80 backdrop-blur-md border-b border-slate-200/70 shadow-[0_1px_10px_rgba(15,23,42,0.06)]"
             : "bg-transparent border-b border-transparent"
         }`}
       >
@@ -306,11 +306,11 @@ export default function LandingPage({
       {/* ══════════════════════════════ HERO ══════════════════════════════ */}
       <section
         id="home"
-        className="relative overflow-hidden bg-gradient-to-b from-amber-50 via-[#FDF7F1] to-[#F3F4F8] pt-10 pb-16 sm:pt-16 sm:pb-20"
+        className="relative overflow-hidden bg-gradient-to-b from-[#FFE2C7] via-[#FFF1E3] to-[#F3F4F8] pt-12 pb-20 sm:pt-20 sm:pb-24"
       >
         {/* Dekorasi glow */}
-        <div className="pointer-events-none absolute -top-24 -left-24 w-80 h-80 rounded-full bg-[#FF5500]/15 blur-[100px]" />
-        <div className="pointer-events-none absolute top-16 right-0 w-72 h-72 rounded-full bg-amber-300/25 blur-[90px]" />
+        <div className="pointer-events-none absolute -top-24 -left-24 w-[28rem] h-[28rem] rounded-full bg-[#FF5500]/25 blur-[110px]" />
+        <div className="pointer-events-none absolute top-10 right-0 w-[30rem] h-[30rem] rounded-full bg-amber-400/30 blur-[110px]" />
 
         <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
           {/* Teks hero */}
@@ -320,7 +320,7 @@ export default function LandingPage({
               Ngolab Cafe × Program Loyalitas Gamifikasi
             </span>
 
-            <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-black leading-[1.05] tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
               Main Game, Kumpulkan Poin,{" "}
               <span className="text-[#FF5500]">Tukar Jadi Reward Kafe!</span>
             </h1>
@@ -337,7 +337,7 @@ export default function LandingPage({
                 id="btn_cta_play"
                 type="button"
                 onClick={() => scrollToSection("games")}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF5500] px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider text-white shadow-lg shadow-[#FF5500]/30 transition-all hover:bg-[#e64d00] active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FF5500] to-orange-500 px-7 py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-xl shadow-[#FF5500]/35 transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-[#FF5500]/40 active:scale-95"
               >
                 <Play className="w-4 h-4 fill-white" />
                 Main Sekarang
@@ -346,7 +346,7 @@ export default function LandingPage({
                 id="btn_cta_study"
                 type="button"
                 onClick={() => scrollToSection("study")}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 transition-all hover:border-slate-300 hover:text-slate-900 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 py-4 text-sm font-bold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-[#FF5500]/40 hover:text-slate-900 active:scale-95"
               >
                 <BookOpen className="w-4 h-4" />
                 Buka Gami Study
@@ -358,7 +358,7 @@ export default function LandingPage({
               {HERO_STATS.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3 text-center backdrop-blur-sm"
+                  className="rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-4 text-center shadow-[0_10px_30px_rgba(15,23,42,0.07)] backdrop-blur-sm"
                 >
                   <p className="text-xl font-black text-[#FF5500] sm:text-2xl">
                     {stat.value}
@@ -371,15 +371,16 @@ export default function LandingPage({
             </div>
           </div>
 
-          {/* Kolase thumbnail game */}
+          {/* Showcase game utama */}
           <div className="relative mx-auto hidden w-full max-w-md lg:block">
+            <div className="pointer-events-none absolute -inset-14 rounded-full bg-[radial-gradient(circle,rgba(255,85,0,0.32),transparent_65%)] blur-3xl" />
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className="relative"
             >
-              <div className="rotate-[-4deg] rounded-3xl border border-slate-200 bg-white p-3 shadow-xl">
+              <div className="rounded-3xl border border-slate-200/80 bg-white p-3 shadow-[0_30px_80px_rgba(15,23,42,0.18)] transition-all duration-300 ease-out hover:-translate-y-2 hover:shadow-[0_40px_90px_rgba(15,23,42,0.24)]">
                 <img
                   src="/thumbnails/catch_thumbnail.webp"
                   alt="Ngolab Catch: Arcade Rush"
@@ -400,21 +401,6 @@ export default function LandingPage({
                   </span>
                 </div>
               </div>
-
-              <motion.img
-                src="/thumbnails/burger_thumbnail.webp"
-                alt="Ngolab Burger Builder"
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -bottom-8 -left-10 w-32 rounded-2xl border-4 border-white shadow-lg"
-              />
-              <motion.img
-                src="/thumbnails/memory_thumbnail.webp"
-                alt="Ngolab Memory Match"
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-8 -right-8 w-28 rounded-2xl border-4 border-white shadow-lg"
-              />
             </motion.div>
           </div>
         </div>
@@ -436,7 +422,7 @@ export default function LandingPage({
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {visibleGames.map((game) => {
             const badge = gameBadge(game);
             const description = GAME_DESCRIPTIONS[game.id] ?? "Mini-game seru dari Ngolab Gami.";
@@ -445,7 +431,7 @@ export default function LandingPage({
                 key={game.id}
                 whileHover={{ y: -4 }}
                 transition={{ duration: 0.15 }}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-lg hover:border-slate-300"
+                className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)] transition-all duration-200 ease-out hover:shadow-[0_20px_50px_rgba(15,23,42,0.16)] hover:border-[#FF5500]/40 hover:ring-1 hover:ring-[#FF5500]/20"
               >
                 {/* Thumbnail */}
                 <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
@@ -453,15 +439,9 @@ export default function LandingPage({
                     src={game.thumbnail}
                     alt={game.title}
                     loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
                   />
-                  {badge && (
-                    <span
-                      className={`absolute top-2 left-2 z-10 rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm ${badge.className}`}
-                    >
-                      {badge.label}
-                    </span>
-                  )}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-900/30 to-transparent" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF5500] shadow-md shadow-[#FF5500]/40">
                       <Play className="w-3.5 h-3.5 fill-white translate-x-0.5 text-white" />
@@ -470,7 +450,14 @@ export default function LandingPage({
                 </div>
 
                 {/* Konten */}
-                <div className="flex flex-1 flex-col p-3">
+                <div className="flex flex-1 flex-col p-4">
+                  {badge && (
+                    <span
+                      className={`mb-2.5 inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm ${badge.className}`}
+                    >
+                      {badge.label}
+                    </span>
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="text-xs font-bold uppercase tracking-tight text-slate-900 group-hover:text-[#FF5500] transition-colors">
                       {game.title}
@@ -480,10 +467,10 @@ export default function LandingPage({
                       {game.rating}
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-relaxed text-slate-500">
+                  <p className="mt-1.5 line-clamp-2 text-[11px] font-medium leading-relaxed text-slate-500">
                     {description}
                   </p>
-                  <div className="mt-3 flex items-center justify-between">
+                  <div className="mt-4 flex items-center justify-between">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
                       {game.category}
                     </span>
@@ -582,7 +569,7 @@ export default function LandingPage({
       </section>
 
       {/* ═══════════════════ LOYALTY & REWARDS INFO ═══════════════════ */}
-      <section id="rewards" className="border-y border-slate-200 bg-white py-16">
+      <section id="rewards" className="border-y border-slate-200 bg-gradient-to-b from-[#FFF6EC] via-white to-[#FFF6EC] py-16">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
           <div className="text-center">
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#FF5500]">
@@ -602,12 +589,13 @@ export default function LandingPage({
             {LOYALTY_STEPS.map((step, index) => (
               <div
                 key={step.title}
-                className="relative rounded-2xl border border-slate-200 bg-[#F3F4F8]/60 p-5"
+                className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-all duration-200 ease-out hover:-translate-y-1 hover:border-orange-300 hover:shadow-[0_20px_50px_rgba(15,23,42,0.12)]"
               >
-                <span className="absolute right-4 top-4 text-3xl font-black text-slate-200">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF5500] to-amber-400" />
+                <span className="absolute right-5 top-5 text-4xl font-black leading-none text-slate-900/10 transition-colors duration-200 group-hover:text-[#FF5500]/30">
                   {index + 1}
                 </span>
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FF5500] text-white shadow-md shadow-[#FF5500]/30">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF5500] text-white shadow-md shadow-[#FF5500]/30">
                   <step.icon className="w-5 h-5" />
                 </span>
                 <h3 className="mt-3 text-sm font-extrabold uppercase tracking-wider text-slate-900">
@@ -650,7 +638,8 @@ export default function LandingPage({
 
       {/* ══════════════════════════════ FOOTER ══════════════════════════════ */}
       <footer className="bg-slate-950 text-slate-400">
-        <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3">
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-[#FF5500]/40 to-transparent" />
+        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2.5">
@@ -737,10 +726,15 @@ export default function LandingPage({
           </div>
         </div>
 
-        <div className="border-t border-white/10 px-4 py-5 text-center sm:px-6">
-          <p className="text-[11px] font-semibold text-slate-500">
-            © 2026 Ngolab Gami · Ngolab Cafe. Semua hak dilindungi.
-          </p>
+        <div className="border-t border-white/10 px-4 py-5 sm:px-6">
+          <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-2 sm:flex-row">
+            <p className="text-[11px] font-semibold text-slate-500">
+              © 2026 Ngolab Gami · Ngolab Cafe. Semua hak dilindungi.
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+              Play · Study · Earn
+            </p>
+          </div>
         </div>
       </footer>
     </div>

@@ -125,7 +125,7 @@ export default function MobileAppLayout({
   };
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#F3F4F8] font-sans relative">
+    <div className="flex flex-col min-h-screen w-full bg-[radial-gradient(ellipse_at_10%_-10%,rgba(255,85,0,0.20),transparent_50%),radial-gradient(ellipse_at_90%_30%,rgba(217,119,6,0.08),transparent_50%),linear-gradient(180deg,#FAF9F6,#FAF9F6,#FAF9F6)] font-sans relative">
       {/* Main Page Area */}
       <div
         className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24"
@@ -186,7 +186,7 @@ export default function MobileAppLayout({
                   <span
                     role="status"
                     aria-label="Memuat Gami Study"
-                    className="h-10 w-10 animate-spin rounded-full border-3 border-slate-200 border-t-[#FF5500]"
+                    className="h-10 w-10 animate-spin rounded-full border-3 border-[#E8DFCE] border-t-[#D97706]"
                   />
                 </div>
               }
@@ -198,7 +198,7 @@ export default function MobileAppLayout({
       </div>
 
       {/* Bottom Floating Navigation Bar (Screenshots 3, 4, 5) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl py-2 px-4">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF9F6] backdrop-blur-md border-t border-[#E8DFCE] shadow-2xl py-2 px-4">
         <div className="mx-auto flex w-full max-w-md items-center justify-around">
           <NavButton
             id="tab_home"
@@ -338,13 +338,13 @@ function NavButton({
       id={id}
       onClick={onClick}
       className={`flex flex-1 flex-col items-center justify-center py-1 px-1 sm:px-3 rounded-2xl transition-all ${
-        active ? "text-[#FF5500] font-extrabold" : "text-slate-400 hover:text-slate-600 font-semibold"
+        active ? "text-[#D97706] font-extrabold" : "text-slate-500 hover:text-slate-600 font-semibold"
       }`}
     >
       <div className="relative">
         {icon}
         {active && (
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#FF5500] rounded-full" />
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#D97706] rounded-full" />
         )}
       </div>
       <span className="text-[10px] mt-1 tracking-tight">{label}</span>
