@@ -136,7 +136,7 @@ const carStyles: Record<string, string> = {
   teal: 'from-teal-300 to-emerald-600 border-teal-100/60',
   yellow: 'from-amber-300 to-yellow-600 border-yellow-100/70',
   green: 'from-lime-300 to-green-600 border-lime-100/60',
-  orange: 'from-orange-300 to-orange-600 border-orange-100/60',
+  orange: 'from-orange-300 to-amber-700 border-orange-100/60',
   pink: 'from-pink-300 to-rose-600 border-pink-100/60',
   target: 'from-rose-400 via-red-500 to-red-700 border-rose-100 shadow-[0_0_22px_rgba(248,74,88,0.38)]',
 };

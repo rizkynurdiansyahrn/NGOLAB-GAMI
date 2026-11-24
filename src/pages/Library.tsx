@@ -84,7 +84,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
   };
 
   return (
-    <div className="flex flex-1 flex-col space-y-6 bg-[#F3F4F8] font-sans pb-28">
+    <div className="flex flex-1 flex-col space-y-6 bg-[#FAF9F6] font-sans pb-28">
       {/* Top Header Navigation Bar (Screenshot 4) */}
       <HeaderNav
         breadcrumb="Dashboard Pemain"
@@ -119,7 +119,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari judul game..."
-            className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#FF5500]/40 transition-all shadow-sm"
+            className="w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#D97706]/40 transition-all shadow-sm"
           />
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
               onClick={() => setSelectedCategory(pill)}
               className={`px-5 py-2 rounded-full text-xs font-extrabold transition-all shrink-0 ${
                 isActive
-                  ? "bg-[#FF5500] text-white shadow-md shadow-[#FF5500]/30"
+                  ? "bg-[#D97706] text-white shadow-md shadow-[#D97706]/30"
                   : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
               }`}
             >
@@ -167,7 +167,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
           Tidak ada game yang cocok dengan filter ini.
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {visibleGames.map((game) => (
             <GameCard
               key={game.id}
@@ -184,10 +184,10 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
       {/* Bottom Banner: Tantangan Mingguan Baru! (Screenshot 4) */}
       <div className="mt-8 bg-[#2A1208] text-white p-6 sm:p-8 rounded-3xl border border-orange-950/40 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         {/* Background glow */}
-        <div className="absolute right-0 bottom-0 w-80 h-80 bg-[#FF5500]/10 blur-[90px] rounded-full pointer-events-none" />
+        <div className="absolute right-0 bottom-0 w-80 h-80 bg-[#D97706]/10 blur-[90px] rounded-full pointer-events-none" />
 
         <div className="space-y-2 max-w-2xl relative z-10">
-          <div className="inline-flex items-center gap-1.5 text-[#FF5500] font-black text-xs uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 text-[#D97706] font-black text-xs uppercase tracking-wider">
             <Trophy className="w-4 h-4" />
             <span>Tantangan Mingguan Baru!</span>
           </div>
@@ -202,7 +202,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
             </div>
             <div className="bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 text-center">
               <p className="text-[9px] font-bold text-slate-400 uppercase">HADIAH</p>
-              <p className="text-sm font-black text-[#FF5500]">+500 PTS</p>
+              <p className="text-sm font-black text-[#D97706]">+500 PTS</p>
             </div>
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function Library({ user, onPlay, onSelectDetail, onOpenProfile, o
         <button
           type="button"
           onClick={() => onPlay("ngolab-catch")}
-          className="relative z-10 inline-flex items-center gap-2 bg-[#FF5500] hover:bg-[#FF6611] text-white font-black text-xs uppercase tracking-wider px-6 py-3.5 rounded-2xl shadow-lg shadow-[#FF5500]/30 transition-all active:scale-95 shrink-0"
+          className="relative z-10 inline-flex items-center gap-2 bg-[#D97706] hover:bg-[#FF6611] text-white font-black text-xs uppercase tracking-wider px-6 py-3.5 rounded-2xl shadow-lg shadow-[#D97706]/30 transition-all active:scale-95 shrink-0"
         >
           <Play className="w-4 h-4 fill-white" />
           <span>MAIN SEKARANG</span>

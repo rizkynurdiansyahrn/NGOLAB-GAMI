@@ -730,22 +730,32 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
       <div className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-orange-200/40 blur-3xl" />
       <div className="relative z-10 mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#FF5500]">Task-linked pomodoro</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D97706]">Task-linked pomodoro</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900">Gami-Study</h1>
           <p className="mt-1 max-w-xl text-sm text-slate-500">Hubungkan sesi fokus dengan tugas, lalu kumpulkan koin dari waktu belajarmu.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-orange-100 bg-white px-3 py-2 shadow-sm">
-          <Coins className="h-4 w-4 text-[#FF5500]" />
+          <Coins className="h-4 w-4 text-[#D97706]" />
           <span className="text-sm font-extrabold text-slate-800">{user.points.toLocaleString()}</span>
           <span className="hidden text-xs font-semibold text-slate-400 sm:inline">koin</span>
         </div>
       </div>
 
-      <AIStudyCoach
-        taskTitle={session?.taskTitle ?? selectedTask?.title}
-        durationMinutes={session?.durationMinutes ?? durationMinutes}
-        conversationKey={`${userId ?? "guest"}:${session?.taskId ?? selectedTaskId ?? "none"}`}
-      />
+      {/* Panduan 3 langkah */}
+      <div className="relative z-10 mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="flex items-center gap-3 rounded-2xl border border-[#E8DFCE] bg-white p-3 shadow-sm">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D97706] text-sm font-black text-white">1</span>
+          <div><p className="text-xs font-extrabold text-slate-800">Pilih tugas</p><p className="text-[10px] text-slate-500">atau buat quick task</p></div>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl border border-[#E8DFCE] bg-white p-3 shadow-sm">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D97706] text-sm font-black text-white">2</span>
+          <div><p className="text-xs font-extrabold text-slate-800">Atur durasi</p><p className="text-[10px] text-slate-500">pilih lama fokus</p></div>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl border border-[#E8DFCE] bg-white p-3 shadow-sm">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D97706] text-sm font-black text-white">3</span>
+          <div><p className="text-xs font-extrabold text-slate-800">Mulai belajar</p><p className="text-[10px] text-slate-500">fokus & kumpulkan koin</p></div>
+        </div>
+      </div>
 
       {!isSessionLive && session?.status !== "evaluation" && session?.status !== "completed" && isStudyLocked && (
         <section className="relative z-10 mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-8">
@@ -764,12 +774,13 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
       )}
 
       {!isSessionLive && session?.status !== "evaluation" && session?.status !== "completed" && !isStudyLocked && (
-        <section className="relative z-10 grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.8fr)]">
+        <section className="relative z-10 space-y-5">
           <div className="space-y-5">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <div className="mb-5 flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><ListChecks className="h-5 w-5" /></span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#D97706]"><ListChecks className="h-5 w-5" /></span>
                 <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#D97706]">Langkah 1</p>
                   <h2 className="text-lg font-black text-slate-900">Pilih tugas belajar</h2>
                   <p className="mt-0.5 text-xs leading-relaxed text-slate-500">Pilih satu tugas yang ingin kamu kerjakan. Tugas wajib dipilih sebelum sesi dimulai.</p>
                 </div>
@@ -806,7 +817,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition transform active:scale-90 ${
                             isCompleted
                               ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/30 hover:bg-emerald-700"
-                              : "border-2 border-slate-300 bg-white text-transparent hover:border-[#FF5500] hover:text-[#FF5500]/50"
+                              : "border-2 border-slate-300 bg-white text-transparent hover:border-[#D97706] hover:text-[#D97706]/50"
                           }`}
                         >
                           <Check className={`h-5 w-5 ${isCompleted ? "stroke-[3]" : ""}`} />
@@ -822,7 +833,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                         </div>
 
                         {isSelected && !isCompleted && (
-                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-[#FF5500]">
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-[#D97706]">
                             Dipilih
                           </span>
                         )}
@@ -849,7 +860,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                     onChange={(event) => { setQuickTaskTitle(event.target.value); setTaskError(""); }}
                     onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addQuickTask(); } }}
                     placeholder="Contoh: Baca bab 3 Biologi"
-                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-orange-100"
                   />
                   <button type="button" onClick={addQuickTask} aria-label="Tambah quick task" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400">
                     <Plus className="h-5 w-5" />
@@ -864,6 +875,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
               <div className="mb-4 flex items-start gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><Timer className="h-5 w-5" /></span>
                 <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#D97706]">Langkah 2</p>
                   <h2 className="text-lg font-black text-slate-900">Atur durasi fokus</h2>
                   <p className="mt-0.5 text-xs text-slate-500">Pilih durasi Pomodoro untuk tugas ini.</p>
                 </div>
@@ -875,7 +887,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                     type="button"
                     onClick={() => setDurationMinutes(duration)}
                     aria-pressed={durationMinutes === duration}
-                    className={`rounded-2xl border px-3 py-3 text-center transition ${durationMinutes === duration ? "border-[#FF5500] bg-orange-50 text-[#FF5500] ring-2 ring-orange-100" : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"}`}
+                    className={`rounded-2xl border px-3 py-3 text-center transition ${durationMinutes === duration ? "border-[#D97706] bg-orange-50 text-[#D97706] ring-2 ring-orange-100" : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"}`}
                   >
                     <span className="block text-lg font-black">{duration}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wider">menit</span>
@@ -883,35 +895,44 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
                 ))}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded-xl bg-orange-50 px-3 py-2.5 text-orange-800"><span className="block font-extrabold">Selesai</span><span>{estimatedFullReward} koin termasuk bonus</span></div>
+                <div className="rounded-xl bg-orange-50 px-3 py-2.5 text-amber-900"><span className="block font-extrabold">Selesai</span><span>{estimatedFullReward} koin termasuk bonus</span></div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-slate-600"><span className="block font-extrabold">Belum selesai</span><span>{estimatedProgressReward} koin proporsional</span></div>
               </div>
               <p className="mt-3 text-[10px] leading-relaxed text-slate-400">Perkiraan berdasarkan {COMPLETED_COINS_PER_MINUTE} koin per menit + bonus {COMPLETION_BONUS_COINS} saat tugas selesai. Tugas berjalan mendapat {IN_PROGRESS_COINS_PER_MINUTE} koin per menit fokus.</p>
             </section>
 
-              <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-xs font-semibold text-slate-600">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 font-extrabold text-slate-800"><Coins className="h-4 w-4 text-[#FF5500]" /> Limit reward 3 hari</span>
-                  <span>{rewardBudget.earnedCoins} / {STUDY_REWARD_CAP} koin</span>
+              <section className="rounded-3xl border border-[#E8DFCE] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.08)] sm:p-6">
+                <div className="mb-4 flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[#D97706]"><Play className="h-5 w-5" /></span>
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#D97706]">Langkah 3</p>
+                    <h2 className="text-lg font-black text-slate-900">Mulai belajar</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">Pastikan tugas & durasi sudah dipilih.</p>
+                  </div>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
-                  <div className="h-full rounded-full bg-[#FF5500] transition-[width]" style={{ width: `${Math.min(100, (rewardBudget.earnedCoins / STUDY_REWARD_CAP) * 100)}%` }} />
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-xs font-semibold text-slate-600">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 font-extrabold text-slate-800"><Coins className="h-4 w-4 text-[#D97706]" /> Limit reward 3 hari</span>
+                    <span className="tabular-nums">{rewardBudget.earnedCoins} / {STUDY_REWARD_CAP} koin</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full bg-[#D97706] transition-[width]" style={{ width: `${Math.min(100, (rewardBudget.earnedCoins / STUDY_REWARD_CAP) * 100)}%` }} />
+                  </div>
                 </div>
-              </div>
-
-              <button
-              type="button"
-              onClick={startSession}
-              disabled={!selectedTask || isStudyLocked || !isRewardBudgetReady}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#FF5500] px-5 text-base font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              <Play className="h-5 w-5 fill-current" /> Mulai Belajar
-            </button>
+                <button
+                type="button"
+                onClick={startSession}
+                disabled={!selectedTask || isStudyLocked || !isRewardBudgetReady}
+                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#D97706] to-[#B45309] px-5 text-base font-extrabold text-white shadow-lg shadow-[#D97706]/30 transition hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              >
+                <Play className="h-5 w-5 fill-current" /> Mulai Belajar
+              </button>
+              </section>
           </div>
 
           <aside className="space-y-5">
             <section className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5 sm:p-6">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#FF5500] shadow-sm"><ShieldCheck className="h-5 w-5" /></span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#D97706] shadow-sm"><ShieldCheck className="h-5 w-5" /></span>
               <h2 className="mt-4 text-base font-black text-slate-900">Sesi yang tetap fokus</h2>
               <ul className="mt-3 space-y-3 text-xs leading-relaxed text-slate-600">
                 <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" /> Gerakan pointer, sentuhan, keyboard, scroll, dan interaksi lain di aplikasi mereset batas diam 1 menit 20 detik.</li>
@@ -944,23 +965,23 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
 
           <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
             <div className="border-b border-slate-100 p-5 sm:p-7">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#FF5500]">Tugas aktif</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#D97706]">Tugas aktif</p>
               <h2 className="mt-1 break-words text-xl font-black leading-snug text-slate-900">{session.taskTitle}</h2>
               <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Clock3 className="h-3.5 w-3.5" /> Pomodoro {session.durationMinutes} menit</p>
             </div>
             <div className="p-6 text-center sm:p-8">
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-[#FF5500]"><Timer className="h-7 w-7" /></div>
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-[#D97706]"><Timer className="h-7 w-7" /></div>
               <p className="font-mono text-6xl font-black tracking-tighter text-slate-900 sm:text-7xl" aria-live="off">{formatTime(session.remainingSeconds)}</p>
               <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">{session.status === "paused" ? "Dijeda" : "Waktu tersisa"}</p>
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Progres sesi fokus" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressPercent)}>
-                <div className="h-full rounded-full bg-gradient-to-r from-[#FF5500] to-amber-400 transition-[width] duration-500" style={{ width: `${progressPercent}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-[#D97706] to-amber-400 transition-[width] duration-500" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="mt-2 text-right text-[10px] font-semibold text-slate-400">{Math.floor(session.focusedSeconds / 60)} menit fokus</p>
               <div className="mt-7 flex gap-3">
                 {session.status === "running" ? (
                   <button type="button" onClick={pauseSession} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-extrabold text-slate-700 transition hover:bg-slate-50"><Pause className="h-4 w-4" /> Jeda</button>
                 ) : (
-                  <button type="button" onClick={resumeSession} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF5500] text-sm font-extrabold text-white transition hover:bg-orange-600"><Play className="h-4 w-4 fill-current" /> Lanjutkan</button>
+                  <button type="button" onClick={resumeSession} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#D97706] text-sm font-extrabold text-white transition hover:bg-amber-700"><Play className="h-4 w-4 fill-current" /> Lanjutkan</button>
                 )}
               </div>
             </div>
@@ -974,7 +995,7 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-7 w-7" /></span>
           <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-600">Sesi selesai</p>
           <h2 className="mt-1 text-xl font-black text-slate-900">{session.taskTitle}</h2>
-          <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-2xl bg-orange-50 px-4 py-3 text-[#FF5500]"><Coins className="h-5 w-5" /><span className="text-xl font-black">+{(session.rewardCoins ?? 0).toLocaleString()}</span><span className="text-xs font-bold">koin</span></div>
+          <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-2xl bg-orange-50 px-4 py-3 text-[#D97706]"><Coins className="h-5 w-5" /><span className="text-xl font-black">+{(session.rewardCoins ?? 0).toLocaleString()}</span><span className="text-xs font-bold">koin</span></div>
           {session.bonusCoins ? <p className="mt-2 text-xs font-bold text-emerald-600">Termasuk bonus tugas selesai +{session.bonusCoins} koin</p> : <p className="mt-2 text-xs font-semibold text-slate-500">Tugas disimpan untuk dilanjutkan nanti.</p>}
           {session.rewardCoins === 0 && <p className="mt-2 text-xs font-semibold text-amber-700">Batas koin periode ini sudah tercapai; tidak ada koin tambahan untuk sesi ini.</p>}
           {cooldownUntilMs !== null && cooldownUntilMs > clockNow && rewardBudget.earnedCoins >= STUDY_REWARD_CAP && (
@@ -993,27 +1014,43 @@ export default function MobileStudyTracker({ userId, user, accessToken = null, o
           <div className="divide-y divide-slate-100">
             {history.slice(0, 5).map((item) => (
               <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.outcome === "completed" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-[#FF5500]"}`}><BookOpen className="h-4 w-4" /></span>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.outcome === "completed" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-[#D97706]"}`}><BookOpen className="h-4 w-4" /></span>
                 <div className="min-w-0 flex-1"><p className="truncate text-xs font-extrabold text-slate-800">{item.taskTitle}</p><p className="mt-0.5 text-[10px] text-slate-500">{formatDate(item.createdAt)} · {item.durationMinutes} menit</p></div>
-                <span className="shrink-0 text-xs font-extrabold text-[#FF5500]">+{item.coins} koin</span>
+                <span className="shrink-0 text-xs font-extrabold text-[#D97706]">+{item.coins} koin</span>
               </div>
             ))}
           </div>
         </section>
       )}
 
+      {/* Tanya AI (Study Coach) — fitur terpisah dari Pomodoro */}
+      <section className="relative z-10 mt-8">
+        <div className="mb-4 flex items-center gap-3 border-b border-[#F0EAE0] pb-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Sparkles className="h-5 w-5" /></span>
+          <div>
+            <h2 className="text-lg font-black text-slate-900">Tanya AI (Study Coach)</h2>
+            <p className="text-xs text-slate-500">Minta ringkasan, penjelasan, atau kuis dari catatan belajarmu — terpisah dari timer fokus.</p>
+          </div>
+        </div>
+        <AIStudyCoach
+          taskTitle={session?.taskTitle ?? selectedTask?.title}
+          durationMinutes={session?.durationMinutes ?? durationMinutes}
+          conversationKey={`${userId ?? "guest"}:${session?.taskId ?? selectedTaskId ?? "none"}`}
+        />
+      </section>
+
       <AnimatePresence>
         {session?.status === "evaluation" && (
           <Modal onClose={() => undefined}>
             <div className="text-center">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><Sparkles className="h-7 w-7" /></span>
-              <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#FF5500]">Pomodoro selesai</p>
-              <h2 className="mt-2 text-2xl font-black leading-tight text-slate-900">Apakah tugas <span className="text-[#FF5500]">{session.taskTitle}</span> sudah selesai?</h2>
+              <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#D97706]">Pomodoro selesai</p>
+              <h2 className="mt-2 text-2xl font-black leading-tight text-slate-900">Apakah tugas <span className="text-[#D97706]">{session.taskTitle}</span> sudah selesai?</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">Pilih status tugas untuk menyimpan progres dan klaim koin.</p>
               {submissionNote && <p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">{submissionNote}</p>}
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <button type="button" disabled={isSubmitting} onClick={() => finishSession(true)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl bg-[#FF5500] px-4 py-3 text-white transition hover:bg-orange-600 disabled:opacity-60"><CheckCircle2 className="mb-1 h-5 w-5" /><span className="text-sm font-extrabold">Selesai</span><span className="mt-0.5 text-[10px] font-semibold text-orange-100">Hingga +{sessionCompleteReward} koin termasuk bonus</span></button>
-                <button type="button" disabled={isSubmitting} onClick={() => finishSession(false)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-60"><Clock3 className="mb-1 h-5 w-5 text-[#FF5500]" /><span className="text-sm font-extrabold">Belum selesai</span><span className="mt-0.5 text-[10px] font-semibold text-slate-500">Simpan progres + hingga {sessionProgressReward} koin</span></button>
+                <button type="button" disabled={isSubmitting} onClick={() => finishSession(true)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl bg-[#D97706] px-4 py-3 text-white transition hover:bg-amber-700 disabled:opacity-60"><CheckCircle2 className="mb-1 h-5 w-5" /><span className="text-sm font-extrabold">Selesai</span><span className="mt-0.5 text-[10px] font-semibold text-orange-100">Hingga +{sessionCompleteReward} koin termasuk bonus</span></button>
+                <button type="button" disabled={isSubmitting} onClick={() => finishSession(false)} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 disabled:opacity-60"><Clock3 className="mb-1 h-5 w-5 text-[#D97706]" /><span className="text-sm font-extrabold">Belum selesai</span><span className="mt-0.5 text-[10px] font-semibold text-slate-500">Simpan progres + hingga {sessionProgressReward} koin</span></button>
               </div>
               {isSubmitting && <p className="mt-4 text-xs font-semibold text-slate-500">Menyimpan sesi dan reward…</p>}
             </div>

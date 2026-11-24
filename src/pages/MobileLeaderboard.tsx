@@ -90,27 +90,27 @@ export default function MobileLeaderboard({
           onClick={() => setReloadTick((v) => v + 1)}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#FF5500]" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#D97706]" : ""}`} />
           Segarkan
         </button>
       </div>
 
       {/* Kartu Posisi Pengguna */}
-      <section className="mb-6 flex items-center gap-4 rounded-2xl border-2 border-[#FF5500]/30 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-5 shadow-sm">
+      <section className="mb-6 flex items-center gap-4 rounded-2xl border-2 border-[#D97706]/30 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-5 shadow-sm">
         <img
           src={user.avatar || DEFAULT_AVATAR}
           alt={user.name}
-          className="h-12 w-12 rounded-full border-2 border-[#FF5500] object-cover"
+          className="h-12 w-12 rounded-full border-2 border-[#D97706] object-cover"
           referrerPolicy="no-referrer"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-wider text-[#FF5500]">POSISI KAMU</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-[#D97706]">POSISI KAMU</p>
           <h3 className="truncate font-extrabold text-slate-900">{user.name}</h3>
           <p className="text-xs font-semibold text-slate-500">
             {myRank ? `Peringkat #${myRank}` : "Belum masuk 50 besar"}
           </p>
         </div>
-        <span className="shrink-0 rounded-xl bg-[#FF5500] px-3.5 py-2 text-sm font-black text-white shadow-sm">
+        <span className="shrink-0 rounded-xl bg-[#D97706] px-3.5 py-2 text-sm font-black text-white shadow-sm">
           {user.pointsAvailable === false ? "—" : `${user.points.toLocaleString()} PT`}
         </span>
       </section>
@@ -174,7 +174,7 @@ export default function MobileLeaderboard({
                       {entry.nama}
                     </h4>
                     {isCurrentUser && (
-                      <span className="rounded-full bg-[#FF5500] px-2 py-0.5 text-[9px] font-black uppercase text-white">
+                      <span className="rounded-full bg-[#D97706] px-2 py-0.5 text-[9px] font-black uppercase text-white">
                         Kamu
                       </span>
                     )}
@@ -182,7 +182,7 @@ export default function MobileLeaderboard({
                   <p className="text-[11px] font-semibold text-slate-500">{entry.tier}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-[#FF5500]">
+                  <p className="text-sm font-black text-[#D97706]">
                     {entry.points.toLocaleString()} PT
                   </p>
                 </div>

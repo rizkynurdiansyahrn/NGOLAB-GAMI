@@ -435,7 +435,7 @@ export default function MobilePatungan({ userId, user, accessToken, onRefreshUse
                           initial={{ width: 0 }}
                           animate={{ width: `${percentage}%` }}
                           transition={{ duration: 1, ease: "easeOut" }}
-                          className="h-full bg-gradient-to-r from-orange-400 to-[#FF6B00] rounded-full relative"
+                          className="h-full bg-gradient-to-r from-amber-500 to-[#FF6B00] rounded-full relative"
                         >
                           <span className="absolute top-0 bottom-0 right-0 w-10 bg-white/40 blur-[4px] -skew-x-12 animate-[shimmer_2s_infinite]" />
                         </motion.div>
@@ -477,7 +477,7 @@ export default function MobilePatungan({ userId, user, accessToken, onRefreshUse
                             setSuccessRoom(room);
                             setShowVoucher(true);
                           }}
-                          className="bg-[#FF6B00] text-black text-xs font-bold px-4 py-2 rounded-xl hover:bg-orange-500 transition-colors uppercase tracking-wider"
+                          className="bg-[#FF6B00] text-black text-xs font-bold px-4 py-2 rounded-xl hover:bg-amber-600 transition-colors uppercase tracking-wider"
                         >
                           Lihat Voucher
                         </button>
@@ -557,7 +557,7 @@ export default function MobilePatungan({ userId, user, accessToken, onRefreshUse
                   </div>
                   <div className="flex gap-2 pt-2">
                     <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-gray-100 text-gray-600 h-12 rounded-xl font-bold uppercase text-xs tracking-wider transition-colors hover:bg-gray-200">Batal</button>
-                    <button type="submit" className="flex-1 bg-[#FF6B00] text-white h-12 rounded-xl font-bold uppercase text-xs tracking-wider shadow-lg hover:bg-orange-500 transition-colors">Buat</button>
+                    <button type="submit" className="flex-1 bg-[#FF6B00] text-white h-12 rounded-xl font-bold uppercase text-xs tracking-wider shadow-lg hover:bg-amber-600 transition-colors">Buat</button>
                   </div>
                 </form>
               </motion.div>

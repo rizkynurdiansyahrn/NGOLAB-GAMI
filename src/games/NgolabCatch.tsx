@@ -341,7 +341,7 @@ export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameP
         }}
       />
       <div className="pointer-events-none absolute -left-28 top-1/3 h-64 w-64 rounded-full bg-cyan-400/10 blur-[90px]" />
-      <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-orange-400/10 blur-[100px]" />
+      <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-amber-500/10 blur-[100px]" />
 
       <canvas
         ref={canvasRef}
@@ -372,7 +372,7 @@ export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameP
                     {hudData.time}<span className="ml-1 text-[9px] font-bold text-slate-400">dtk</span>
                   </div>
                   <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-                    <div className={`h-full rounded-full transition-[width] duration-300 ${hudData.time <= 3 ? 'bg-rose-400' : 'bg-gradient-to-r from-amber-300 to-orange-400'}`} style={{ width: `${Math.max(0, (hudData.time / 10) * 100)}%` }} />
+                    <div className={`h-full rounded-full transition-[width] duration-300 ${hudData.time <= 3 ? 'bg-rose-400' : 'bg-gradient-to-r from-amber-300 to-amber-500'}`} style={{ width: `${Math.max(0, (hudData.time / 10) * 100)}%` }} />
                   </div>
                 </div>
 
@@ -422,7 +422,7 @@ export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameP
               className="relative my-auto max-h-full w-full max-w-[460px] overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[#0d1b2d]/95 p-5 text-center shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:rounded-[32px] sm:p-7"
             >
               <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-orange-400/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
 
               {gameState === 'START' ? (
                 <div className="relative">
@@ -483,7 +483,7 @@ export default function NgolabCatch({ onGameOver, onExit, onScoreChange }: GameP
                 </div>
               ) : (
                 <div className="relative">
-                  <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-orange-400/10 text-amber-200 shadow-[0_12px_32px_rgba(251,146,60,0.18)]">
+                  <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-amber-500/10 text-amber-200 shadow-[0_12px_32px_rgba(251,146,60,0.18)]">
                     <Trophy className="h-9 w-9" strokeWidth={2.3} aria-hidden="true" />
                   </div>
                   <div className="mb-2 inline-flex rounded-full border border-amber-100/10 bg-amber-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.17em] text-amber-200">Ronde selesai</div>

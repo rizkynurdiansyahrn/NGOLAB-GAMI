@@ -142,7 +142,7 @@ export default function MobileAppLayout({
   };
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#F3F4F8] font-sans relative">
+    <div className="flex flex-col min-h-screen w-full bg-[#FAF9F6] font-sans relative">
       {/* Main Page Area */}
       <div
         className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-24"
@@ -358,13 +358,13 @@ function NavButton({
       id={id}
       onClick={onClick}
       className={`flex flex-1 flex-col items-center justify-center py-1 px-1 sm:px-3 rounded-2xl transition-all ${
-        active ? "text-[#FF5500] font-extrabold" : "text-slate-400 hover:text-slate-600 font-semibold"
+        active ? "text-[#D97706] font-extrabold" : "text-slate-400 hover:text-slate-600 font-semibold"
       }`}
     >
       <div className="relative">
         {icon}
         {active && (
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#FF5500] rounded-full" />
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#D97706] rounded-full" />
         )}
       </div>
       <span className="text-[10px] mt-1 tracking-tight">{label}</span>

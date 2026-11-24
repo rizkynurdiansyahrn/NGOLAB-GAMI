@@ -513,7 +513,7 @@ export default function NgolabAstroDrift({ onGameOver, onExit, onScoreChange }: 
                 </div>
               ) : (
                 <div className="relative text-center">
-                  <div className={'mx-auto mb-4 flex h-[72px] w-[72px] items-center justify-center rounded-[25px] border text-white shadow-[0_12px_34px_rgba(34,211,238,0.18)] ' + (timeLeft === 0 ? 'border-cyan-100/20 bg-gradient-to-br from-cyan-200 to-blue-500 text-[#061326]' : 'border-rose-100/20 bg-gradient-to-br from-rose-300 to-orange-500')}>
+                  <div className={'mx-auto mb-4 flex h-[72px] w-[72px] items-center justify-center rounded-[25px] border text-white shadow-[0_12px_34px_rgba(34,211,238,0.18)] ' + (timeLeft === 0 ? 'border-cyan-100/20 bg-gradient-to-br from-cyan-200 to-blue-500 text-[#061326]' : 'border-rose-100/20 bg-gradient-to-br from-rose-300 to-amber-600')}>
                     {timeLeft === 0 ? <Trophy className="h-9 w-9" aria-hidden="true" /> : <Orbit className="h-9 w-9" aria-hidden="true" />}
                   </div>
                   <div className="mb-2 inline-flex rounded-full border border-cyan-100/10 bg-cyan-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.17em] text-cyan-200">Misi selesai</div>

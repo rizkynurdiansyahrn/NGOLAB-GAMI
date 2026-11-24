@@ -47,7 +47,7 @@ export default function GameDetail({
   ];
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#F3F4F8] font-sans pb-24">
+    <div className="flex flex-col min-h-screen w-full bg-[#FAF9F6] font-sans pb-24">
       {/* Top Header Nav Bar */}
       <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-4">
         <HeaderNav breadcrumb="Game Detail" user={user} onOpenProfile={onOpenProfile} onLogout={onLogout} />
@@ -78,7 +78,7 @@ export default function GameDetail({
             <div className="absolute bottom-6 left-6 right-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4 z-20">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="bg-[#FF5500] text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider">
+                  <span className="bg-[#D97706] text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider">
                     {game.category}
                   </span>
                   <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider">
@@ -113,7 +113,7 @@ export default function GameDetail({
                 <button
                   type="button"
                   onClick={() => onPlay(game.id)}
-                  className="px-6 py-3 bg-[#FF5500] hover:bg-[#FF6611] text-white font-bold text-sm rounded-full shadow-lg shadow-[#FF5500]/30 transition-all active:scale-95"
+                  className="px-6 py-3 bg-[#D97706] hover:bg-[#FF6611] text-white font-bold text-sm rounded-full shadow-lg shadow-[#D97706]/30 transition-all active:scale-95"
                 >
                   Main Sekarang
                 </button>
@@ -133,7 +133,7 @@ export default function GameDetail({
                   onClick={() => setActiveTab("deskripsi")}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "deskripsi"
-                      ? "bg-[#FF5500] text-white shadow-sm"
+                      ? "bg-[#D97706] text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
@@ -143,7 +143,7 @@ export default function GameDetail({
                   onClick={() => setActiveTab("aturan")}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "aturan"
-                      ? "bg-[#FF5500] text-white shadow-sm"
+                      ? "bg-[#D97706] text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
@@ -153,7 +153,7 @@ export default function GameDetail({
                   onClick={() => setActiveTab("hadiah")}
                   className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "hadiah"
-                      ? "bg-[#FF5500] text-white shadow-sm"
+                      ? "bg-[#D97706] text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-900"
                   }`}
                 >
@@ -172,7 +172,7 @@ export default function GameDetail({
                   {/* Info Chips */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-4 rounded-2xl">
-                      <div className="w-10 h-10 rounded-xl bg-[#FF5500]/10 text-[#FF5500] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-[#D97706]/10 text-[#D97706] flex items-center justify-center">
                         <Gamepad2 className="w-5 h-5" />
                       </div>
                       <div>
@@ -186,7 +186,7 @@ export default function GameDetail({
                     </div>
 
                     <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-4 rounded-2xl">
-                      <div className="w-10 h-10 rounded-xl bg-[#FF5500]/10 text-[#FF5500] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-[#D97706]/10 text-[#D97706] flex items-center justify-center">
                         <Clock className="w-5 h-5" />
                       </div>
                       <div>
@@ -218,7 +218,7 @@ export default function GameDetail({
                 <div className="space-y-3 text-sm text-slate-600">
                   <p className="font-bold text-slate-900">Potensi Hadiah:</p>
                   <div className="flex items-center gap-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
-                    <Zap className="w-5 h-5 text-[#FF5500]" />
+                    <Zap className="w-5 h-5 text-[#D97706]" />
                     <span className="text-slate-800 font-semibold">Capai target &ldquo;{target.targetLabel}&rdquo; lalu dapatkan 10 poin. Keluar sebelum target tercapai berarti belum dapat poin. Maksimal 10 poin per game per hari, 50 poin per hari untuk semua game (game tetap bisa dimainkan setelah limit tercapai).</span>
                   </div>
                 </div>
@@ -256,7 +256,7 @@ export default function GameDetail({
                 <h3 className="text-base font-extrabold text-slate-900">
                   Papan Peringkat
                 </h3>
-                <Trophy className="w-5 h-5 text-[#FF5500]" />
+                <Trophy className="w-5 h-5 text-[#D97706]" />
               </div>
 
               <p className="rounded-2xl bg-slate-50 p-4 text-xs text-slate-500">
@@ -274,12 +274,12 @@ export default function GameDetail({
               </p>
 
               <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mb-4">
-                <div className="bg-[#FF5500] h-full rounded-full" style={{ width: `${Math.min(100, ((user?.exp ?? 0) / (user?.nextExp ?? 100)) * 100)}%` }} />
+                <div className="bg-[#D97706] h-full rounded-full" style={{ width: `${Math.min(100, ((user?.exp ?? 0) / (user?.nextExp ?? 100)) * 100)}%` }} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-[#FF5500]" />
+                  <Award className="w-5 h-5 text-[#D97706]" />
                   <div>
                     <p className="text-sm font-black text-slate-900">—</p>
                     <p className="text-[10px] font-semibold text-slate-400">Lencana</p>
@@ -287,7 +287,7 @@ export default function GameDetail({
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-[#FF5500]" />
+                  <Zap className="w-5 h-5 text-[#D97706]" />
                   <div>
                     <p className="text-sm font-black text-slate-900">{user?.pointsAvailable === false ? "—" : (user?.points ?? 0).toLocaleString()}</p>
                     <p className="text-[10px] font-semibold text-slate-400">Poin</p>
@@ -298,7 +298,7 @@ export default function GameDetail({
 
             {/* Widget 3: Ready to Play Card */}
             <div className="bg-slate-50 rounded-3xl p-6 shadow-sm border border-slate-200 text-left">
-              <div className="w-10 h-10 rounded-xl bg-[#FF5500] text-white flex items-center justify-center mb-3">
+              <div className="w-10 h-10 rounded-xl bg-[#D97706] text-white flex items-center justify-center mb-3">
                 <Gamepad2 className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-extrabold text-slate-900 mb-1">
@@ -310,7 +310,7 @@ export default function GameDetail({
               <button
                 type="button"
                 onClick={() => onPlay(game.id)}
-                className="w-full py-3 bg-[#FF5500] hover:bg-[#FF6611] text-white font-extrabold text-xs rounded-2xl shadow-md shadow-[#FF5500]/20 transition-all active:scale-95"
+                className="w-full py-3 bg-[#D97706] hover:bg-[#FF6611] text-white font-extrabold text-xs rounded-2xl shadow-md shadow-[#D97706]/20 transition-all active:scale-95"
               >
                 Mulai Main
               </button>

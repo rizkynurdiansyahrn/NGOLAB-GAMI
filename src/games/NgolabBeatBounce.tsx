@@ -321,7 +321,7 @@ export default function NgolabBeatBounce({ onGameOver, onExit, onScoreChange }: 
                 className="absolute z-20 w-[19%] -translate-x-1/2 -translate-y-1/2 sm:w-[16%]"
                 style={{ left: `${note.lane * 25 + 12.5}%` }}
               >
-                <div className={`h-4 w-full rounded-full border border-white/55 shadow-[0_0_22px_currentColor] sm:h-5 ${note.lane === 0 ? 'bg-gradient-to-r from-cyan-300 to-cyan-500 text-cyan-300' : note.lane === 1 ? 'bg-gradient-to-r from-rose-300 to-pink-500 text-rose-300' : note.lane === 2 ? 'bg-gradient-to-r from-emerald-300 to-teal-500 text-emerald-300' : 'bg-gradient-to-r from-amber-200 to-orange-500 text-amber-300'}`} />
+                <div className={`h-4 w-full rounded-full border border-white/55 shadow-[0_0_22px_currentColor] sm:h-5 ${note.lane === 0 ? 'bg-gradient-to-r from-cyan-300 to-cyan-500 text-cyan-300' : note.lane === 1 ? 'bg-gradient-to-r from-rose-300 to-pink-500 text-rose-300' : note.lane === 2 ? 'bg-gradient-to-r from-emerald-300 to-teal-500 text-emerald-300' : 'bg-gradient-to-r from-amber-200 to-amber-600 text-amber-300'}`} />
               </motion.div>
             ))}
 

@@ -97,7 +97,7 @@ export default function HeaderNav({
             placeholder="Cari game..."
             value={searchValue}
             onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-            className="w-full bg-slate-200/60 border border-slate-300/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF5500]/50 transition-all"
+            className="w-full bg-slate-200/60 border border-slate-300/50 rounded-full pl-9 pr-4 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 transition-all"
           />
         </div>
 

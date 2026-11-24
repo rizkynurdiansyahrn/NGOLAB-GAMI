@@ -13,7 +13,7 @@ type Tile = { color: PaletteColor; id: string } | null;
 
 const palette: PaletteColor[] = [
   { name: 'hijau', className: 'from-emerald-300 to-emerald-600' },
-  { name: 'kuning', className: 'from-amber-200 to-orange-500' },
+  { name: 'kuning', className: 'from-amber-200 to-amber-600' },
   { name: 'biru', className: 'from-sky-300 to-blue-600' },
   { name: 'ungu', className: 'from-violet-300 to-purple-600' },
   { name: 'merah muda', className: 'from-pink-300 to-rose-600' },

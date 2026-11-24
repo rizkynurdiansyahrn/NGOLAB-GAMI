@@ -123,7 +123,7 @@ export default function App() {
 
   if (ssoPending && !currentUser) {
     return (
-      <div className="min-h-screen w-full bg-[#F3F4F8] flex items-center justify-center p-6">
+      <div className="min-h-screen w-full bg-[#FAF9F6] flex items-center justify-center p-6">
         <div role="status" className="rounded-3xl bg-white border border-slate-200 px-6 py-5 shadow-lg text-sm font-bold text-slate-700">
           Menghubungkan sesi akun dari PointLab...
         </div>
@@ -132,7 +132,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#F3F4F8] flex justify-center selection:bg-[#FF5500]/30 selection:text-slate-900">
+    <div className="min-h-screen w-full bg-[#FAF9F6] flex justify-center selection:bg-[#D97706]/30 selection:text-slate-900">
       <AnimatePresence mode="wait">
         {state === 'landing' && !currentUser && (
           <motion.div

@@ -433,7 +433,7 @@ export default function NgolabSkySwipe({ onGameOver, onExit, onScoreChange }: Ga
               className="relative my-auto max-h-full w-full max-w-[460px] overflow-y-auto overscroll-contain rounded-[28px] border border-white/10 bg-[#101c2e]/95 p-5 text-center shadow-[0_30px_100px_rgba(0,0,0,0.58)] sm:rounded-[32px] sm:p-7"
             >
               <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-sky-300/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-orange-400/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
               <div className="relative">
                 <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-sky-100/20 bg-gradient-to-br from-sky-200 to-cyan-400 text-[#082b3d] shadow-[0_12px_32px_rgba(56,189,248,0.22)]">
                   <Cloud className="h-9 w-9 fill-white/25" strokeWidth={2.5} aria-hidden="true" />
@@ -506,7 +506,7 @@ export default function NgolabSkySwipe({ onGameOver, onExit, onScoreChange }: Ga
             >
               <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-amber-300/10 blur-3xl" />
               <div className="relative">
-                <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-orange-400/10 text-amber-200 shadow-[0_12px_32px_rgba(251,191,36,0.16)]">
+                <div className="mx-auto mb-4 flex h-[76px] w-[76px] items-center justify-center rounded-[26px] border border-amber-100/20 bg-gradient-to-br from-amber-200/25 to-amber-500/10 text-amber-200 shadow-[0_12px_32px_rgba(251,191,36,0.16)]">
                   <Trophy className="h-9 w-9" strokeWidth={2.3} aria-hidden="true" />
                 </div>
                 <div className="mb-2 inline-flex rounded-full border border-amber-100/10 bg-amber-200/[0.07] px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.17em] text-amber-200">Ronde selesai</div>

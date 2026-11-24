@@ -983,7 +983,7 @@ export default function AIStudyCoach({
                     className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[95%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-[#FF5500] text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-700"}`}
+                      className={`max-w-[95%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === "user" ? "rounded-br-md bg-[#D97706] text-white" : "rounded-bl-md border border-slate-200 bg-white text-slate-700"}`}
                     >
                       {message.role === "assistant" && (
                         <p className="mb-1 text-[10px] font-extrabold uppercase tracking-wide text-violet-600">
